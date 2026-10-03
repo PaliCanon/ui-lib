@@ -19,6 +19,11 @@
 //!   by the shell in the rail and in the mobile navigation.
 //! - [`popover`] — a floating panel tied to a [`button::Disclosure`],
 //!   closing itself on Escape and on an outside click once hydrated.
+//! - [`motion`] — the motion tokens (durations, easings) a [`motion::Motion`]
+//!   builds its classes on.
+//! - [`presence`] — [`presence::Presence`], a primitive that keeps its
+//!   content mounted through its exit animation, played by a
+//!   [`motion::Motion`].
 //! - [`menu`] — a list of [`menu::MenuItem`]s, with submenus: [`menu::Menu`]
 //!   (a popover, nested side by side) on desktop, [`menu::DrillMenu`]
 //!   (inline, drilling down) on mobile.
@@ -45,9 +50,11 @@ pub mod icon;
 pub mod language;
 mod language_menu;
 pub mod menu;
+pub mod motion;
 pub mod nav;
 pub mod persisted;
 pub mod popover;
+pub mod presence;
 pub mod shell;
 pub mod theme;
 mod viewport;
@@ -67,8 +74,10 @@ pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use icon::{Icon, IconName};
 pub use language::{Language, language_attribute, language_signal, provide_language};
 pub use menu::{DrillMenu, Menu, MenuItem};
+pub use motion::{Edge, Motion};
 pub use nav::{NavEntry, NavList, NavSection};
 pub use persisted::persisted;
 pub use popover::Popover;
+pub use presence::Presence;
 pub use shell::{AppShell, ShellState};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};

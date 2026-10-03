@@ -38,6 +38,9 @@ pub enum IconName {
     Dialog,
     /// A globe: the language entry of the rail and of the mobile navigation.
     Globe,
+    /// Three shrinking lines, trailing a motion: the gallery's animations
+    /// page.
+    Motion,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -69,6 +72,10 @@ fn paths(name: IconName) -> &'static [&'static str] {
             "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z",
             "M2 12h20",
             "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
+        ],
+        IconName::Motion => &[
+            // Three trailing lines, shrinking towards the moving shape.
+            "M3 7h10", "M3 12h15", "M3 17h7",
         ],
         other => core_paths(other),
     }
@@ -182,6 +189,7 @@ mod tests {
             IconName::Close,
             IconName::Dialog,
             IconName::Globe,
+            IconName::Motion,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }

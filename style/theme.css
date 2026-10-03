@@ -149,6 +149,68 @@
   :focus-visible { outline: 2px solid var(--ps-gold); outline-offset: 2px; border-radius: 2px; }
 }
 
+/* Motion: durations, easings, and one bouncier curve — not theme-scoped,
+   the same under light, dark and system. Used only by the library's own
+   `pc-motion-*` classes below (`crate::motion::Motion`), never read by a
+   Tailwind utility directly. */
+:root {
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* `crate::presence::Presence`'s own classes: every one animates `opacity`,
+   and every one but `pc-motion-fade` also `transform` — never a layout
+   property (the rail width transition in `shell.rs` is the one exception
+   elsewhere in the app, its own single CSS transition, untouched here).
+   `data-state` (set by `Presence`) switches each between its closed and
+   open values. */
+@layer components {
+  .pc-motion {
+    transition-duration: var(--dur-base);
+    transition-timing-function: var(--ease-out);
+  }
+  .pc-motion-fade { transition-property: opacity; }
+  .pc-motion-fade[data-state="closed"] { opacity: 0; }
+  .pc-motion-fade[data-state="open"] { opacity: 1; }
+
+  .pc-motion-scale {
+    transition-property: opacity, transform;
+    transition-timing-function: var(--spring);
+  }
+  .pc-motion-scale[data-state="closed"] { opacity: 0; transform: scale(0.95); }
+  .pc-motion-scale[data-state="open"] { opacity: 1; transform: scale(1); }
+
+  .pc-motion-slide-top,
+  .pc-motion-slide-bottom,
+  .pc-motion-slide-left,
+  .pc-motion-slide-right {
+    transition-property: opacity, transform;
+    transition-timing-function: var(--ease-in-out);
+  }
+  .pc-motion-slide-top[data-state="closed"] { opacity: 0; transform: translateY(-0.5rem); }
+  .pc-motion-slide-bottom[data-state="closed"] { opacity: 0; transform: translateY(0.5rem); }
+  .pc-motion-slide-left[data-state="closed"] { opacity: 0; transform: translateX(-0.5rem); }
+  .pc-motion-slide-right[data-state="closed"] { opacity: 0; transform: translateX(0.5rem); }
+  .pc-motion-slide-top[data-state="open"],
+  .pc-motion-slide-bottom[data-state="open"] { opacity: 1; transform: translateY(0); }
+  .pc-motion-slide-left[data-state="open"],
+  .pc-motion-slide-right[data-state="open"] { opacity: 1; transform: translateX(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
+  /* `pc-motion-*` keeps a quick opacity crossfade; its transform half drops. */
+  .pc-motion { transition-property: opacity !important; transition-duration: var(--dur-fast) !important; }
+}
+
+/* The gallery's live toggle: the same carve-out as reduced motion above,
+   without needing the OS preference, for any `pc-motion-*` under an
+   ancestor carrying this attribute. */
+[data-motion="reduce"] .pc-motion {
+  transition-property: opacity !important;
+  transition-duration: var(--dur-fast) !important;
 }
