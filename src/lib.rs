@@ -7,6 +7,10 @@
 //!   browser on change.
 //! - [`button`] — the button family: variants and sizes for the look, one
 //!   small component per behaviour.
+//! - [`language`] — the interface language: [`language::Language`], the
+//!   one [`language::language_signal`], and `resolve_language` (the
+//!   server's choice: cookie `pc_lang`, then `Accept-Language`, then
+//!   English).
 //! - [`icon`] — the icons of the identity, one at a time as they are needed.
 //! - [`env_badge`] — which build is running: a small mono badge, `env ·
 //!   sha7`, never interactive; [`shell::AppShell`]'s `env_badge` prop shows
@@ -28,14 +32,18 @@
 //!   still using [`menu::Menu`] directly.
 //! - [`shell`] — the app shell: the navigation rail (desktop) and the
 //!   full-screen navigation (mobile), opened and closed with the lotus, with
-//!   Settings (a [`dialog::Dialog`], the theme as a [`theme::ThemePicker`] by
-//!   default) pinned at the bottom.
+//!   Language (the globe and the current language's name, opening a menu of
+//!   the languages) and Settings (a [`dialog::Dialog`], the theme as a
+//!   [`theme::ThemePicker`] by default) pinned at the bottom.
 
 pub mod button;
+mod catalogue;
 pub mod dialog;
 pub mod env_badge;
 mod focus_trap;
 pub mod icon;
+pub mod language;
+mod language_menu;
 pub mod menu;
 pub mod nav;
 pub mod persisted;
@@ -44,6 +52,12 @@ pub mod shell;
 pub mod theme;
 mod viewport;
 
+// The build script's placeholder-parity check, unit-tested here (it has no
+// test harness of its own).
+#[cfg(test)]
+#[path = "../build/placeholders.rs"]
+mod placeholders;
+
 pub use button::{
     Button, ChoiceCardOption, ChoiceCards, Disclosed, Disclosure, DisclosureButton, LinkButton,
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
@@ -51,6 +65,7 @@ pub use button::{
 pub use dialog::{Dialog, DialogSection};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use icon::{Icon, IconName};
+pub use language::{Language, language_attribute, language_signal, provide_language};
 pub use menu::{DrillMenu, Menu, MenuItem};
 pub use nav::{NavEntry, NavList, NavSection};
 pub use persisted::persisted;

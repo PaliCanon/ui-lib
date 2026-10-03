@@ -98,15 +98,34 @@ where
         .and_then(|cookies| cookie_value(cookies, &key))
         .and_then(|raw| raw.parse().ok())
         .unwrap_or(default);
+    persisted_with(name, initial)
+}
+
+/// A signal starting at `initial` — a value the caller already resolved,
+/// not read from the cookie — whose later changes are written to the
+/// `pc_<name>` cookie in the browser, exactly as [`persisted`]'s are. For
+/// a value whose first state comes from somewhere else than its own cookie:
+/// [`crate::language::language_signal`] hydrates from `<html lang>`.
+pub fn persisted_with<T>(name: &'static str, initial: T) -> RwSignal<T>
+where
+    T: ToString + Clone + Send + Sync + 'static,
+{
     let signal = RwSignal::new(initial);
     #[cfg(feature = "hydrate")]
-    Effect::new(move |previous: Option<()>| {
-        let value = signal.get().to_string();
-        // The first run only reads: the cookie already holds this value.
-        if previous.is_some() {
-            write_cookie(&cookie_assignment(&key, &value, &current_host()));
-        }
-    });
+    {
+        let key = format!("{PREFIX}{name}");
+        Effect::new(move |previous: Option<()>| {
+            let value = signal.get().to_string();
+            // The first run only reads: the starting value is no choice —
+            // the cookie holds it already, or it came from elsewhere
+            // (`Accept-Language`) and is resolved again on the next request.
+            if previous.is_some() {
+                write_cookie(&cookie_assignment(&key, &value, &current_host()));
+            }
+        });
+    }
+    #[cfg(not(feature = "hydrate"))]
+    let _ = name;
     signal
 }
 
@@ -149,6 +168,35 @@ mod tests {
         assert!(!cookie_assignment("x", "1", "evilpalicanon.app").contains("Domain"));
         assert!(local.starts_with("pc_rail=true; Path=/; Max-Age="));
         assert!(local.contains("SameSite=Lax"));
+    }
+
+    #[cfg(feature = "ssr")]
+    #[test]
+    fn persisted_with_starts_from_the_given_value_not_the_cookie() {
+        Owner::new().with(|| {
+            let request = http_request_with_cookie("pc_count=7");
+            provide_context(request);
+            assert_eq!(
+                persisted("count", 0_u32).get_untracked(),
+                7,
+                "persisted reads it"
+            );
+            assert_eq!(
+                persisted_with("count", 3_u32).get_untracked(),
+                3,
+                "persisted_with does not"
+            );
+        });
+    }
+
+    #[cfg(feature = "ssr")]
+    fn http_request_with_cookie(cookie: &str) -> http::request::Parts {
+        http::Request::builder()
+            .header(http::header::COOKIE, cookie)
+            .body(())
+            .unwrap()
+            .into_parts()
+            .0
     }
 
     #[test]

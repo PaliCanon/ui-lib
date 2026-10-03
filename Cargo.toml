@@ -7,11 +7,23 @@ license.workspace = true
 
 [dependencies]
 leptos.workspace = true
+# Typed string catalogues, generated at build time (build.rs): a missing
+# key fails the build. Its own cookie and language detection are off: the
+# language is ui-lab's own `language_signal`.
+leptos_i18n = { version = "0.6.2", default-features = false }
 # Server side: the request's Cookie header (leptos_axum puts the request parts in context).
 http = { version = "1", optional = true }
 # Browser side: document.cookie.
 wasm-bindgen = { version = "0.2", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location", "Element", "NodeList", "HtmlElement", "HtmlDivElement", "CssStyleDeclaration", "DomRect", "VisualViewport"] }
+
+[build-dependencies]
+# What leptos_i18n_build wraps, used directly: its diagnostics are needed to
+# fail the build on a missing key (the wrapper only prints them).
+leptos_i18n_parser = "=0.6.2"
+leptos_i18n_codegen = "=0.6.2"
+# Reads the locale files for the placeholder-parity check (build/placeholders.rs).
+serde_json = "1"
 
 [dev-dependencies]
 # The native test of focus_trap's glue and Dialog's wiring to it runs
@@ -21,6 +33,8 @@ web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocum
 reactive_graph = { version = "0.2", features = ["effects"] }
 any_spawner = { version = "0.3", features = ["tokio"] }
 tokio = { version = "1", features = ["rt"] }
+# The placeholder-parity check's own tests (build/placeholders.rs).
+serde_json = "1"
 
 [features]
 ssr = ["leptos/ssr", "dep:http"]

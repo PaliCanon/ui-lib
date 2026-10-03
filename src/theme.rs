@@ -19,9 +19,12 @@ use std::fmt;
 use std::str::FromStr;
 
 use leptos::prelude::*;
+use leptos_i18n::td_string;
 
 use crate::button::{ChoiceCardOption, ChoiceCards};
+use crate::catalogue::{Locale, strings};
 use crate::icon::IconName;
+use crate::language::language_signal;
 use crate::menu::MenuItem;
 use crate::persisted;
 
@@ -110,28 +113,45 @@ pub fn theme_signal() -> RwSignal<Theme> {
     signal
 }
 
-/// The three choices of [`theme_menu`], in the order they are shown.
-const CHOICES: [(Theme, IconName, &str); 3] = [
-    (Theme::System, IconName::Monitor, "System"),
-    (Theme::Light, IconName::Sun, "Light"),
-    (Theme::Dark, IconName::Moon, "Dark"),
+/// The three choices, in the order [`theme_menu`] shows them.
+const CHOICES: [(Theme, IconName); 3] = [
+    (Theme::System, IconName::Monitor),
+    (Theme::Light, IconName::Sun),
+    (Theme::Dark, IconName::Moon),
 ];
+
+/// `theme`'s own name in `locale`.
+fn theme_label(locale: Locale, theme: Theme) -> &'static str {
+    match theme {
+        Theme::System => td_string!(locale, system),
+        Theme::Light => td_string!(locale, light),
+        Theme::Dark => td_string!(locale, dark),
+    }
+}
 
 /// The reading theme as a menu entry: a submenu of System, Light and Dark,
 /// each a [`MenuItem::Choice`] bound to [`theme_signal`]. Not what Settings
 /// shows — [`crate::shell::AppShell`]'s default `settings` is an Appearance
 /// section — but kept as a helper for an app that wants a theme menu (in a
 /// [`crate::menu::Menu`] of its own).
+///
+/// Its labels are in the language current when it is called, and stay so:
+/// a [`MenuItem`]'s labels are plain strings, not signals, so a later
+/// language switch does not reach them. Do not rebuild the menu to follow
+/// one: each [`crate::menu::Menu`] built adds window listeners that are
+/// never removed. For a theme choice that follows the language live, use
+/// [`ThemePicker`].
 #[must_use]
 pub fn theme_menu() -> MenuItem {
     let theme = theme_signal();
+    let locale = Locale::from(language_signal().get_untracked());
     MenuItem::Submenu {
-        label: "Theme",
+        label: td_string!(locale, theme),
         icon: Some(IconName::Sun),
         items: CHOICES
             .into_iter()
-            .map(|(value, icon, label)| MenuItem::Choice {
-                label,
+            .map(|(value, icon)| MenuItem::Choice {
+                label: theme_label(locale, value),
                 icon: Some(icon),
                 selected: Signal::derive(move || theme.get() == value),
                 on_select: Callback::new(move |()| theme.set(value)),
@@ -148,15 +168,29 @@ pub fn theme_menu() -> MenuItem {
 /// to [`theme_signal`]; choosing one applies at once. The default of
 /// [`crate::shell::AppShell`]'s `settings`, in place of the former
 /// [`crate::button::Segmented`].
+///
+/// Its name and card labels follow the current language live: the whole
+/// group re-renders on a switch, since a [`ChoiceCardOption`]'s label is a
+/// plain string.
 #[component]
 pub fn ThemePicker() -> impl IntoView {
     let (value, on_change) = theme_binding();
-    let options = vec![
-        theme_card(Theme::Light, "Light"),
-        theme_card(Theme::Dark, "Dark"),
-        theme_card(Theme::System, "System"),
-    ];
-    view! { <ChoiceCards aria_label="Theme" options=options value=value on_change=on_change /> }
+    let t = strings();
+    move || {
+        let locale = t.locale();
+        let options = [Theme::Light, Theme::Dark, Theme::System]
+            .into_iter()
+            .map(|theme| theme_card(theme, theme_label(locale, theme)))
+            .collect::<Vec<_>>();
+        view! {
+            <ChoiceCards
+                aria_label=td_string!(locale, theme)
+                options=options
+                value=value
+                on_change=on_change
+            />
+        }
+    }
 }
 
 /// [`ThemePicker`]'s link to [`theme_signal`]: the value its cards show, and
@@ -227,6 +261,7 @@ fn PagePreview(theme: &'static str, #[prop(optional)] clip: Option<&'static str>
 mod tests {
     use super::*;
     use crate::button::choice_cards_test::card;
+    use crate::language::{Language, language_signal};
 
     #[test]
     fn displays_and_parses_every_theme() {
@@ -297,6 +332,25 @@ mod tests {
     }
 
     #[test]
+    fn the_theme_menu_reads_its_labels_in_the_language_current_when_called() {
+        Owner::new().with(|| {
+            language_signal().set(Language::Vi);
+            let MenuItem::Submenu { label, items, .. } = theme_menu() else {
+                panic!("theme_menu is a Submenu");
+            };
+            assert_eq!(label, "Chủ đề");
+            let labels: Vec<&str> = items
+                .iter()
+                .map(|item| match item {
+                    MenuItem::Choice { label, .. } => *label,
+                    _ => unreachable!(),
+                })
+                .collect();
+            assert_eq!(labels, ["Hệ thống", "Sáng", "Tối"]);
+        });
+    }
+
+    #[test]
     fn the_theme_menu_marks_exactly_the_current_theme_selected() {
         Owner::new().with(|| {
             theme_signal().set(Theme::Dark);
@@ -354,6 +408,44 @@ mod tests {
         assert!(html.contains("Dark"), "{html}");
         assert!(html.contains("System"), "{html}");
         assert_eq!(html.matches(r#"aria-checked="true""#).count(), 1, "{html}");
+    }
+
+    /// The picker carries `theme` as its name and each of `cards` as a label.
+    fn assert_picker_in(html: &str, theme: &str, cards: [&str; 3]) {
+        let name = format!(r#"aria-label="{theme}""#);
+        assert!(html.contains(&name), "{html}");
+        for label in cards {
+            assert!(
+                html.contains(&format!(">{label}</span>")),
+                "{label}: {html}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_theme_picker_speaks_french_and_vietnamese() {
+        for (language, theme, cards) in [
+            (Language::Fr, "Thème", ["Clair", "Sombre", "Système"]),
+            (Language::Vi, "Chủ đề", ["Sáng", "Tối", "Hệ thống"]),
+        ] {
+            let html = Owner::new().with(|| {
+                language_signal().set(language);
+                view! { <ThemePicker /> }.to_html()
+            });
+            assert_picker_in(&html, theme, cards);
+        }
+    }
+
+    #[test]
+    fn switching_the_language_re_renders_the_theme_picker() {
+        let html = Owner::new().with(|| {
+            let picker = view! { <ThemePicker /> };
+            language_signal().set(Language::Fr);
+            picker.to_html()
+        });
+        assert_picker_in(&html, "Thème", ["Clair", "Sombre", "Système"]);
+        assert!(!html.contains(">Light</span>"), "{html}");
+        assert!(!html.contains(r#"aria-label="Theme""#), "{html}");
     }
 
     #[test]

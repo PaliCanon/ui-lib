@@ -12,8 +12,10 @@
 //! First used by [`crate::shell::AppShell`]'s Settings.
 
 use leptos::prelude::*;
+use leptos_i18n::td_string;
 
 use crate::button::{Button, Disclosure, Variant};
+use crate::catalogue::strings;
 use crate::focus_trap;
 use crate::icon::{Icon, IconName};
 
@@ -30,8 +32,10 @@ pub fn Dialog<D: Disclosure>(
     /// What opens and closes it.
     controls: D,
     /// Its header title; also its accessible name (`aria-labelledby`).
+    /// A plain string, or a signal to follow: a title in the current
+    /// language changes in place, the dialog stays mounted.
     #[prop(into)]
-    title: String,
+    title: Signal<String>,
     /// Backdrop click and Escape close it, the header shows a close
     /// button, and another `Dialog` opening replaces it, while this is true
     /// (the default). Set to `false` for a required confirmation: only the
@@ -90,23 +94,34 @@ fn Backdrop<D: Disclosure>(controls: D, dismissable: bool) -> impl IntoView {
 /// `dismissable` is false — a required confirmation has no shortcut out.
 #[component]
 fn Header<D: Disclosure>(
-    title: String,
+    title: Signal<String>,
     title_id: String,
     controls: D,
     dismissable: bool,
 ) -> impl IntoView {
     view! {
         <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4">
-            <h2 id=title_id class="font-serif text-lg text-heading">{title}</h2>
-            {dismissable
-                .then(|| {
-                    view! {
-                        <Button variant=Variant::Icon label="Close" on_click=move |_| controls.set_open(false)>
-                            <Icon name=IconName::Close />
-                        </Button>
-                    }
-                })}
+            <h2 id=title_id class="font-serif text-lg text-heading">{move || title.get()}</h2>
+            {dismissable.then(|| view! { <CloseButton controls=controls /> })}
         </div>
+    }
+}
+
+/// The header's close ✕, named `close` in the current language: re-rendered
+/// whole on a switch, since [`Button`]'s `label` is a plain string.
+#[component]
+fn CloseButton<D: Disclosure>(controls: D) -> impl IntoView {
+    let t = strings();
+    move || {
+        view! {
+            <Button
+                variant=Variant::Icon
+                label=td_string!(t.locale(), close)
+                on_click=move |_| controls.set_open(false)
+            >
+                <Icon name=IconName::Close />
+            </Button>
+        }
     }
 }
 
@@ -157,6 +172,7 @@ pub fn DialogSection(
 mod tests {
     use super::*;
     use crate::button::Disclosed;
+    use crate::language::{Language, language_signal};
 
     fn rendered(id: &'static str, open: bool) -> String {
         Owner::new().with(|| {
@@ -195,6 +211,55 @@ mod tests {
     fn the_close_button_shows_by_default() {
         let html = rendered("pc-dialog-open", true);
         assert!(html.contains(r#"aria-label="Close""#), "{html}");
+    }
+
+    #[test]
+    fn the_close_button_is_named_in_the_current_language() {
+        for (language, name) in [(Language::Fr, "Fermer"), (Language::Vi, "Đóng")] {
+            let html = Owner::new().with(|| {
+                language_signal().set(language);
+                let controls = Disclosed::new("pc-dialog-lang", RwSignal::new(true));
+                view! { <Dialog controls=controls title="T"><p>"body"</p></Dialog> }.to_html()
+            });
+            let expected = format!(r#"aria-label="{name}""#);
+            assert!(html.contains(&expected), "{language:?}: {html}");
+        }
+    }
+
+    #[test]
+    fn a_reactive_title_follows_its_signal_once_built() {
+        let html = Owner::new().with(|| {
+            let controls = Disclosed::new("pc-dialog-title", RwSignal::new(true));
+            let french = RwSignal::new(false);
+            let title = Signal::derive(move || {
+                if french.get() {
+                    "Paramètres"
+                } else {
+                    "Settings"
+                }
+                .to_string()
+            });
+            // Built with one title, rendered after it changed: the same
+            // dialog shows the new one, no rebuild needed.
+            let dialog = view! { <Dialog controls=controls title=title><p>"body"</p></Dialog> };
+            french.set(true);
+            dialog.to_html()
+        });
+        assert!(html.contains(">Paramètres</h2>"), "{html}");
+        assert!(!html.contains("Settings"), "{html}");
+    }
+
+    #[test]
+    fn switching_the_language_re_renders_the_close_buttons_name() {
+        let html = Owner::new().with(|| {
+            let controls = Disclosed::new("pc-dialog-live", RwSignal::new(true));
+            // Built in English, rendered after the switch.
+            let dialog = view! { <Dialog controls=controls title="T"><p>"body"</p></Dialog> };
+            language_signal().set(Language::Fr);
+            dialog.to_html()
+        });
+        assert!(html.contains(r#"aria-label="Fermer""#), "{html}");
+        assert!(!html.contains(r#"aria-label="Close""#), "{html}");
     }
 
     #[test]

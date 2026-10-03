@@ -5,13 +5,24 @@
 //!   it. The page beside it moves with it. Open or closed is remembered
 //!   ([`persisted`](fn@crate::persisted), cookie `pc_rail`), across pages and subdomains.
 //! - **Mobile**: a top bar with the lotus; the lotus opens the navigation
-//!   full screen, the lotus or ✕ closes it. Always closed when a page loads.
-//! - **Escape** closes whichever is open.
+//!   full screen, the lotus or ✕ closes it. Always closed when a page loads,
+//!   and always reopened at its top (never drilled into the languages).
+//! - **Escape** closes whichever is open, innermost first: with the
+//!   language menu or the Settings dialog open, only that one; drilled
+//!   into the mobile languages, it backs out one level.
 //!
 //! Below the lotus, the app's [`NavList`] (none by default): each service
 //! adds its own entry when it is created. Choosing an entry in the mobile
-//! navigation closes it. Strings are English until the i18n mechanism is
-//! defined.
+//! navigation closes it.
+//!
+//! **Language** sits just above Settings, at the bottom of the rail and of
+//! the full-screen navigation: the globe and the current language's own
+//! name. On desktop it opens a menu of the languages (English · Français ·
+//! Tiếng Việt), its own disclosure `pc-language`; on mobile its row drills
+//! down to the same choices. Choosing one sets
+//! [`crate::language::language_signal`]: the shell's own
+//! strings (Settings, Appearance, Open and Close navigation) follow live,
+//! and so does `<html lang>` once hydrated.
 //!
 //! **Settings** sits at the bottom of the rail (desktop) and of the
 //! full-screen navigation (mobile): both the gear (desktop) and the row
@@ -32,13 +43,22 @@
 //! shows which build is running: below Settings at the rail bottom
 //! (desktop), and on the right of the top bar (mobile) — the very same
 //! value, rendered twice.
+//!
+//! A [`DisclosureButton`]'s label and a [`Dialog`]'s title are fixed once
+//! built, so each piece carrying one of the shell's strings is rebuilt in
+//! its own reactive closure when the language changes.
 
 use leptos::prelude::*;
+use leptos_i18n::td_string;
 
 use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Size, Variant};
+use crate::catalogue::strings;
 use crate::dialog::{Dialog, DialogSection};
 use crate::env_badge::{EnvBadge, EnvBadgeInfo};
 use crate::icon::{Icon, IconName};
+use crate::language::{Language, provide_language};
+use crate::language_menu::{LanguageMenu, MobileLanguage, RailLanguageEntry};
+use crate::menu::Path;
 use crate::nav::{MobileSections, NavList, RailSections};
 use crate::persisted;
 use crate::theme::{self, Theme, ThemePicker};
@@ -58,8 +78,19 @@ pub struct ShellState {
     /// The Settings dialog is open (never remembered): shared by the
     /// desktop gear and the mobile row, see the module documentation.
     pub settings_open: RwSignal<bool>,
+    /// The desktop language menu is open (never remembered).
+    pub language_open: RwSignal<bool>,
     /// The reading theme (remembered in the `pc_theme` cookie).
     pub theme: RwSignal<Theme>,
+    /// The interface language: the page's one signal
+    /// ([`provide_language`], called again here in case the app's root did
+    /// not; remembered in the `pc_lang` cookie).
+    pub language: RwSignal<Language>,
+    /// The mobile language row's drill state (empty: the row; `[0]`: the
+    /// languages), held here so Escape can back out of it and closing the
+    /// navigation through the shell (lotus, ✕, an entry, Escape) can reset
+    /// it.
+    pub(crate) language_path: Path,
 }
 
 /// The lotus, the content of the buttons that open and close the navigation.
@@ -105,75 +136,118 @@ pub fn AppShell(
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
-    let state = ShellState {
-        rail_open: persisted("rail", false),
-        menu_open: RwSignal::new(false),
-        settings_open: RwSignal::new(false),
-        theme: theme::theme_signal(),
-    };
+    let state = shell_state();
     provide_context(state);
     close_on_escape(state);
     apply_theme(state.theme);
+    apply_language(state.language);
     let rail_open = state.rail_open;
     let settings = settings.unwrap_or_else(default_settings);
-
-    let rail_width = move || {
-        if rail_open.get() {
-            RAIL_OPEN
-        } else {
-            RAIL_CLOSED
-        }
-    };
     view! {
         <DesktopRail logo=logo nav=nav.clone() env_badge=env_badge />
         <MobileNav logo=logo nav=nav env_badge=env_badge />
         <SettingsDialog settings=settings />
         // The service's page, beside the rail on desktop.
-        <div class="transition-[padding] duration-200 sm:pl-(--pc-rail)" style:--pc-rail=rail_width>
+        <div class="transition-[padding] duration-200 sm:pl-(--pc-rail)" style:--pc-rail=move || rail_width(rail_open.get())>
             {children()}
         </div>
     }
+}
+
+/// A fresh [`ShellState`]: the rail as remembered, everything else closed,
+/// the theme and the language as this render resolved them.
+fn shell_state() -> ShellState {
+    ShellState {
+        rail_open: persisted("rail", false),
+        menu_open: RwSignal::new(false),
+        settings_open: RwSignal::new(false),
+        language_open: RwSignal::new(false),
+        theme: theme::theme_signal(),
+        language: provide_language(),
+        language_path: RwSignal::new(Vec::new()),
+    }
+}
+
+/// The rail's width, open or collapsed.
+fn rail_width(open: bool) -> &'static str {
+    if open { RAIL_OPEN } else { RAIL_CLOSED }
 }
 
 /// The default of `AppShell`'s `settings`: one Appearance section, the
 /// theme as a [`ThemePicker`]. `ThemePicker` reads [`theme::theme_signal`]
 /// itself (the very same instance `AppShell` already provided as
 /// `ShellState::theme`, through context), so nothing needs threading here.
+/// The section re-renders itself when the language changes (its title is
+/// a plain string); the dialog around it stays mounted.
 fn default_settings() -> ViewFn {
     (move || {
-        view! {
-            <DialogSection title="Appearance">
-                <ThemePicker />
-            </DialogSection>
-        }
+        let t = strings();
+        (move || {
+            view! {
+                <DialogSection title=td_string!(t.locale(), appearance)>
+                    <ThemePicker />
+                </DialogSection>
+            }
+        })
         .into_any()
     })
     .into()
 }
 
 /// The Settings dialog, opened by both the desktop gear and the mobile row
-/// through the same shared `ShellState::settings_open`.
+/// through the same shared `ShellState::settings_open`. Built once, with
+/// the shell: its title follows the language in place. Rebuilding it on a
+/// switch would install one more Escape listener and focus manager each
+/// time (window listeners outlive the view they came from).
 #[component]
 fn SettingsDialog(settings: ViewFn) -> impl IntoView {
     let state = expect_context::<ShellState>();
     let controls = Disclosed::new("pc-settings", state.settings_open);
-    view! { <Dialog controls=controls title="Settings">{settings.run()}</Dialog> }
+    let t = strings();
+    let title = Signal::derive(move || td_string!(t.locale(), settings).to_owned());
+    view! { <Dialog controls=controls title=title>{settings.run()}</Dialog> }
 }
 
-/// Escape closes the rail and the mobile navigation (the Settings dialog
-/// closes itself: it is a [`crate::dialog::Dialog`], which already listens
-/// for Escape). The browser only: there is no window while the server
-/// renders.
+/// Escape closes the rail and the mobile navigation, or only the language
+/// menu or the Settings dialog when one is open (`escape`). The browser
+/// only: there is no window while the server renders.
 fn close_on_escape(state: ShellState) {
     #[cfg(feature = "hydrate")]
     let _ = window_event_listener(leptos::ev::keydown, move |ev| {
         if ev.key() == "Escape" {
-            state.menu_open.set(false);
-            state.rail_open.set(false);
+            escape(state);
         }
     });
     #[cfg(not(feature = "hydrate"))]
     let _ = state;
+}
+
+/// What Escape does to the shell, innermost first: with the desktop
+/// language menu or the Settings dialog open, it closes that one only —
+/// the rail stays as it is (and `pc_rail` is not rewritten), and so does
+/// the mobile navigation Settings may have been opened from; drilled into
+/// the mobile languages, it backs out one level, the navigation still
+/// open (the row has no focus once drilled, so no keydown of its own
+/// could); otherwise it closes the rail and the mobile navigation. The
+/// shell's listener runs before the menu's and the dialog's own (it is
+/// registered first, in `AppShell`'s body), so it still sees them open;
+/// theirs then find nothing left to close.
+#[cfg(any(feature = "hydrate", test))]
+fn escape(state: ShellState) {
+    for open in [state.language_open, state.settings_open] {
+        if open.get_untracked() {
+            open.set(false);
+            return;
+        }
+    }
+    if state.menu_open.get_untracked() && !state.language_path.get_untracked().is_empty() {
+        state.language_path.update(|path| {
+            path.pop();
+        });
+        return;
+    }
+    mobile_navigation(state).set_open(false);
+    state.rail_open.set(false);
 }
 
 /// Mirrors `theme` onto the `<html data-theme>` attribute as it changes, so
@@ -197,13 +271,42 @@ fn apply_theme(theme: RwSignal<Theme>) {
     let _ = theme;
 }
 
-const OPEN_LABEL: &str = "Open navigation";
-const CLOSE_LABEL: &str = "Close navigation";
+/// Mirrors `language` onto the `<html lang>` attribute as it changes, so
+/// a choice applies without a reload. The browser only: the server's shell
+/// already wrote the request's language there for the first render.
+fn apply_language(language: RwSignal<Language>) {
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| {
+        if let Some(root) = document().document_element() {
+            let _ = root.set_attribute("lang", language.get().code());
+        }
+    });
+    #[cfg(not(feature = "hydrate"))]
+    let _ = language;
+}
+
+/// The lotus button that opens and closes `controls` (the rail, or the
+/// mobile navigation), named "Open navigation" / "Close navigation" in the
+/// current language: rebuilt when it changes.
+#[component]
+fn LotusToggle<D: Disclosure>(controls: D, logo: &'static str) -> impl IntoView {
+    let t = strings();
+    move || {
+        let open = td_string!(t.locale(), open_navigation);
+        let close = td_string!(t.locale(), close_navigation);
+        view! {
+            <DisclosureButton controls=controls variant=Variant::Icon label_closed=open label_open=close>
+                <Lotus logo=logo />
+            </DisclosureButton>
+        }
+    }
+}
 
 /// The desktop rail: the lotus opens and closes it; the name shows when
-/// open. The Settings entry at its bottom opens [`SettingsDialog`], a
-/// sibling of the rail (not nested in it): the dialog is fixed over the
-/// whole page, not clipped by the rail's own `overflow-hidden`.
+/// open. The Language and Settings entries at its bottom open
+/// [`LanguageMenu`] and [`SettingsDialog`], siblings of the rail (not
+/// nested in it): they float over the page, not clipped by the rail's own
+/// `overflow-hidden`.
 #[component]
 fn DesktopRail(
     logo: &'static str,
@@ -212,62 +315,80 @@ fn DesktopRail(
 ) -> impl IntoView {
     let ShellState {
         rail_open,
-        settings_open,
+        language_open,
+        language,
         ..
     } = expect_context::<ShellState>();
-    let settings = Disclosed::new("pc-settings", settings_open);
+    let language_menu = Disclosed::new("pc-language", language_open);
     view! {
         <nav
             id="pc-rail"
             aria-label="PaliCanon"
             class="fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-line bg-page transition-[width] duration-200 sm:flex"
-            style:width=move || if rail_open.get() { RAIL_OPEN } else { RAIL_CLOSED }
+            style:width=move || rail_width(rail_open.get())
             data-open=move || rail_open.get().to_string()
         >
             <div class="flex items-center gap-3 p-3.5">
-                <DisclosureButton
-                    controls=Disclosed::new("pc-rail", rail_open)
-                    variant=Variant::Icon
-                    label_closed=OPEN_LABEL
-                    label_open=CLOSE_LABEL
-                >
-                    <Lotus logo=logo />
-                </DisclosureButton>
+                <LotusToggle controls=Disclosed::new("pc-rail", rail_open) logo=logo />
                 <Wordmark shown=rail_open />
             </div>
             <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
                 {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
             </div>
-            <RailSettingsEntry settings=settings shown=rail_open env_badge=env_badge />
+            <RailBottom language_menu=language_menu shown=rail_open env_badge=env_badge />
         </nav>
+        <LanguageMenu
+            controls=language_menu
+            current=language
+            rail_width=Signal::derive(move || rail_width(rail_open.get()))
+        />
     }
 }
 
-/// The Settings entry, pinned to the bottom of the rail by `mt-auto` (the
-/// rail is a flex column): a gear, and the label, fading like the nav
-/// entries above it while the rail is collapsed; the env badge, when
-/// given, sits below it, fading the same way (it would not fit in the
-/// icon-only collapsed width).
+/// The rail's bottom block, pinned there by `mt-auto` (the rail is a flex
+/// column): the Language entry, then Settings, then the env badge when
+/// given, fading like the entries' labels while the rail is collapsed (it
+/// would not fit in the icon-only collapsed width).
 #[component]
-fn RailSettingsEntry(
-    settings: Disclosed,
+fn RailBottom(
+    language_menu: Disclosed,
     #[prop(into)] shown: Signal<bool>,
     env_badge: Option<EnvBadgeInfo>,
 ) -> impl IntoView {
+    let ShellState {
+        settings_open,
+        language,
+        ..
+    } = expect_context::<ShellState>();
+    let settings = Disclosed::new("pc-settings", settings_open);
     view! {
-        <div class="mt-auto border-t border-line px-3.5 pt-3.5 pb-3.5">
-            <DisclosureButton controls=settings variant=Variant::Nav label_closed="Settings" label_open="Settings">
-                <Icon name=IconName::Gear />
-                <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
-                    "Settings"
-                </span>
-            </DisclosureButton>
+        <div class="mt-auto flex flex-col gap-1 border-t border-line p-3.5">
+            <RailLanguageEntry controls=language_menu current=language shown=shown />
+            <RailSettingsEntry settings=settings shown=shown />
             {env_badge.map(|info| view! {
-                <div class="mt-3 transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                <div class="mt-2 transition-opacity duration-150" class:opacity-0=move || !shown.get()>
                     <EnvBadge env=info.env sha=info.sha />
                 </div>
             })}
         </div>
+    }
+}
+
+/// The Settings entry: a gear, and the label, fading like the nav entries
+/// above it while the rail is collapsed; rebuilt when the language changes.
+#[component]
+fn RailSettingsEntry(settings: Disclosed, #[prop(into)] shown: Signal<bool>) -> impl IntoView {
+    let t = strings();
+    move || {
+        let label = td_string!(t.locale(), settings);
+        view! {
+            <DisclosureButton controls=settings variant=Variant::Nav label_closed=label label_open=label>
+                <Icon name=IconName::Gear />
+                <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                    {label}
+                </span>
+            </DisclosureButton>
+        }
     }
 }
 
@@ -280,18 +401,12 @@ fn MobileNav(
     nav: Option<NavList>,
     env_badge: Option<EnvBadgeInfo>,
 ) -> impl IntoView {
-    let ShellState {
-        menu_open,
-        settings_open,
-        ..
-    } = expect_context::<ShellState>();
-    let menu = Disclosed::new("pc-menu", menu_open);
-    let settings = Disclosed::new("pc-settings", settings_open);
+    let state = expect_context::<ShellState>();
+    let menu_open = state.menu_open;
+    let menu = mobile_navigation(state);
     view! {
         <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-page px-2 sm:hidden">
-            <DisclosureButton controls=menu variant=Variant::Icon label_closed=OPEN_LABEL label_open=CLOSE_LABEL>
-                <Lotus logo=logo />
-            </DisclosureButton>
+            <LotusToggle controls=menu logo=logo />
             <Wordmark shown=Signal::derive(|| true) />
             {env_badge.map(|info| view! {
                 <div class="ml-auto max-w-[8rem]">
@@ -309,45 +424,108 @@ fn MobileNav(
         >
             <MobileMenuHeader logo=logo menu=menu />
             // Clicks bubble up from the entries: choosing one closes the menu.
-            // Settings sits outside this container: opening it must not
-            // close the mobile menu the same way.
+            // Language and Settings sit outside this container: choosing a
+            // language or opening Settings must not close the mobile menu.
             <div class="flex flex-col gap-1 overflow-y-auto p-3" on:click=move |_| menu.set_open(false)>
                 {nav.map(|nav| view! { <MobileSections nav=nav /> })}
             </div>
+            <MobileBottom />
+        </div>
+    }
+}
+
+/// What opens and closes the full-screen navigation: the lotus, the ✕,
+/// an entry, and Escape all go through it.
+fn mobile_navigation(state: ShellState) -> MobileNavigation {
+    MobileNavigation {
+        open: state.menu_open,
+        language_path: state.language_path,
+    }
+}
+
+/// The full-screen navigation's disclosure (`pc-menu`): closing it also
+/// brings the language row back to its top level, so the navigation
+/// always reopens on the Language row, never drilled into the languages.
+#[derive(Clone, Copy, Debug)]
+struct MobileNavigation {
+    open: RwSignal<bool>,
+    language_path: Path,
+}
+
+impl Disclosure for MobileNavigation {
+    fn id(&self) -> &'static str {
+        "pc-menu"
+    }
+    fn is_open(&self) -> bool {
+        self.open.get()
+    }
+    fn set_open(&self, open: bool) {
+        if !open {
+            self.language_path.set(Vec::new());
+        }
+        self.open.set(open);
+    }
+}
+
+/// The bottom of the full-screen navigation, pinned there: the Language
+/// row (drilling down to the languages), then Settings.
+#[component]
+fn MobileBottom() -> impl IntoView {
+    let ShellState {
+        settings_open,
+        language,
+        language_path,
+        ..
+    } = expect_context::<ShellState>();
+    let settings = Disclosed::new("pc-settings", settings_open);
+    view! {
+        <div class="mt-auto flex flex-col gap-1 border-t border-line p-3">
+            <MobileLanguage current=language path=language_path />
             <MobileSettings settings=settings />
         </div>
     }
 }
 
-/// The Settings row of the full-screen navigation, pinned to the bottom:
-/// opens the very same [`SettingsDialog`] the desktop gear does.
+/// The Settings row of the full-screen navigation: opens the very same
+/// [`SettingsDialog`] the desktop gear does; rebuilt when the language
+/// changes.
 #[component]
 fn MobileSettings(settings: Disclosed) -> impl IntoView {
-    view! {
-        <div class="mt-auto border-t border-line p-3">
-            <DisclosureButton controls=settings variant=Variant::Nav size=Size::Lg label_closed="Settings" label_open="Settings">
+    let t = strings();
+    move || {
+        let label = td_string!(t.locale(), settings);
+        view! {
+            <DisclosureButton controls=settings variant=Variant::Nav size=Size::Lg label_closed=label label_open=label>
                 <Icon name=IconName::Gear />
-                <span>"Settings"</span>
+                <span>{label}</span>
             </DisclosureButton>
-        </div>
+        }
     }
 }
 
 /// The top of the full-screen navigation: the lotus (closes it), the name,
-/// and a close cross.
+/// and a close cross, named "Close navigation" in the current language.
 #[component]
-fn MobileMenuHeader(logo: &'static str, menu: Disclosed) -> impl IntoView {
+fn MobileMenuHeader(logo: &'static str, menu: MobileNavigation) -> impl IntoView {
+    let t = strings();
     view! {
         <div class="flex h-14 items-center gap-2 border-b border-line px-2">
-            <DisclosureButton controls=menu variant=Variant::Icon label_closed=OPEN_LABEL label_open=CLOSE_LABEL>
-                <Lotus logo=logo />
-            </DisclosureButton>
+            <LotusToggle controls=menu logo=logo />
             <Wordmark shown=Signal::derive(|| true) />
-            <Button variant=Variant::Icon label=CLOSE_LABEL layout="ml-auto" on_click=move |_| menu.set_open(false)>
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                    <path d="m4 4 8 8M12 4l-8 8" />
-                </svg>
-            </Button>
+            {move || {
+                view! {
+                    <Button
+                        variant=Variant::Icon
+                        label=td_string!(t.locale(), close_navigation)
+                        layout="ml-auto"
+                        on_click=move |_| menu.set_open(false)
+                    >
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                            <path d="m4 4 8 8M12 4l-8 8" />
+                        </svg>
+                    </Button>
+                }
+            }}
         </div>
     }
 }
@@ -355,19 +533,447 @@ fn MobileMenuHeader(logo: &'static str, menu: Disclosed) -> impl IntoView {
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::*;
+    use crate::language::{Language, language_signal, provide_language};
 
     fn render(rail_cookie: Option<&str>) -> String {
+        render_cookies(
+            rail_cookie
+                .map(|value| format!("pc_rail={value}"))
+                .as_deref(),
+        )
+    }
+
+    /// The shell rendered for a request carrying `cookies` (a whole
+    /// `Cookie` header), if any.
+    fn render_cookies(cookies: Option<&str>) -> String {
         let owner = Owner::new();
         owner.with(|| {
-            if let Some(value) = rail_cookie {
+            if let Some(cookies) = cookies {
                 let request = http::Request::builder()
-                    .header(http::header::COOKIE, format!("pc_rail={value}"))
+                    .header(http::header::COOKIE, cookies)
                     .body(())
                     .unwrap();
                 provide_context(request.into_parts().0);
             }
             view! { <AppShell><p>"page"</p></AppShell> }.to_html()
         })
+    }
+
+    /// The desktop rail's markup alone: its `<nav>`, open tag to close.
+    fn rail(html: &str) -> &str {
+        let start = html.find(r#"<nav id="pc-rail""#).expect("rail");
+        let end = start + html[start..].find("</nav>").expect("rail end");
+        &html[start..end]
+    }
+
+    /// The mobile full-screen navigation's markup, to the end of the page.
+    fn mobile(html: &str) -> &str {
+        &html[html.find(r#"id="pc-menu""#).expect("mobile menu")..]
+    }
+
+    /// The globe's SVG, as an `Icon` renders it.
+    fn globe() -> String {
+        Owner::new().with(|| view! { <Icon name=IconName::Globe /> }.to_html())
+    }
+
+    #[test]
+    fn the_language_entry_sits_above_settings_in_the_rail() {
+        let html = render(None);
+        let rail = rail(&html);
+        let language = rail
+            .find(r#"aria-controls="pc-language""#)
+            .expect("a language entry in the rail");
+        let settings = rail
+            .find(r#"aria-controls="pc-settings""#)
+            .expect("settings");
+        assert!(language < settings, "{rail}");
+    }
+
+    #[test]
+    fn the_language_entry_shows_the_globe_and_the_current_name() {
+        for (code, name) in [("en", "English"), ("fr", "Français"), ("vi", "Tiếng Việt")] {
+            let html = render_cookies(Some(&format!("pc_lang={code}")));
+            let rail = rail(&html);
+            let entry = &rail[rail.find(r#"aria-controls="pc-language""#).unwrap()..];
+            let entry = &entry[..entry.find("</button>").unwrap()];
+            assert!(entry.contains(&globe()), "{code}: {entry}");
+            assert!(entry.contains(name), "{code}: {entry}");
+        }
+    }
+
+    #[test]
+    fn the_language_entry_is_named_language_in_the_current_language() {
+        let html = render_cookies(Some("pc_lang=vi"));
+        let rail = rail(&html);
+        let entry = &rail[rail.find(r#"aria-controls="pc-language""#).unwrap()..];
+        let tag = &entry[..entry.find('>').unwrap()];
+        assert!(tag.contains(r#"aria-label="Ngôn ngữ""#), "{tag}");
+    }
+
+    #[test]
+    fn the_language_menu_lists_the_three_in_order_with_the_current_one_checked() {
+        let html = render_cookies(Some("pc_lang=fr"));
+        let panel = &html[html.find(r#"id="pc-language""#).expect("menu panel")..];
+        // Up to the mobile navigation, which has its own three choices.
+        let panel = &panel[..panel.find(r#"id="pc-menu""#).expect("mobile menu")];
+        let rows: Vec<&str> = panel.split(r#"role="menuitemradio""#).skip(1).collect();
+        assert_eq!(rows.len(), 3, "{panel}");
+        for (row, name) in rows.iter().zip(["English", "Français", "Tiếng Việt"]) {
+            let row = &row[..row.find("</button>").unwrap()];
+            assert!(row.contains(name), "{name}: {row}");
+            let checked = row.contains(r#"aria-checked="true""#);
+            assert_eq!(checked, name == "Français", "{name}: {row}");
+        }
+    }
+
+    #[test]
+    fn the_language_menu_is_outside_the_clipped_rail() {
+        let html = render(None);
+        assert!(!rail(&html).contains(r#"id="pc-language""#), "{html}");
+        assert_eq!(html.matches(r#"id="pc-language""#).count(), 1, "{html}");
+    }
+
+    #[test]
+    fn the_mobile_language_row_sits_above_settings() {
+        let html = render(None);
+        let mobile = mobile(&html);
+        let language = mobile.find(&globe()).expect("a language row");
+        let settings = mobile
+            .find(r#"aria-controls="pc-settings""#)
+            .expect("settings");
+        assert!(language < settings, "{mobile}");
+    }
+
+    /// Picking a language on mobile keeps the full-screen navigation open:
+    /// the row is in the bottom block, not in the entries' container,
+    /// whose clicks close the navigation.
+    #[test]
+    fn the_mobile_language_row_is_outside_the_closing_container() {
+        let html = render(None);
+        let mobile = mobile(&html);
+        let entries = mobile.find("overflow-y-auto p-3").expect("entries");
+        let bottom = mobile.find("mt-auto").expect("bottom block");
+        let row = mobile.find(&globe()).expect("language row");
+        assert!(entries < bottom && bottom < row, "{mobile}");
+    }
+
+    /// Drilled into the languages, the navigation closed, then reopened:
+    /// it opens on the Language row again, Back and the languages hidden
+    /// (T20).
+    #[test]
+    fn closing_the_navigation_resets_the_language_drill() {
+        let html = Owner::new().with(|| {
+            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let state = expect_context::<ShellState>();
+            let navigation = mobile_navigation(state);
+            navigation.set_open(true);
+            state.language_path.set(vec![0]);
+            navigation.set_open(false);
+            navigation.set_open(true);
+            shell.to_html()
+        });
+        let mobile = mobile(&html);
+        let opening_tag = |marker: &str| {
+            let at = mobile
+                .find(marker)
+                .unwrap_or_else(|| panic!("{marker}: {mobile}"));
+            let start = mobile[..at].rfind('<').unwrap();
+            &mobile[start..at + mobile[at..].find('>').unwrap()]
+        };
+        assert!(
+            !opening_tag(r#"aria-haspopup="true""#).contains("hidden"),
+            "the Language row shows: {mobile}"
+        );
+        assert!(
+            opening_tag(r#"role="group""#).contains("hidden"),
+            "the languages are hidden: {mobile}"
+        );
+        let back = mobile.find(">Back<").expect("the Back row");
+        let back = &mobile[mobile[..back].rfind("<button").unwrap()..back];
+        assert!(back.contains("hidden"), "Back is hidden: {back}");
+    }
+
+    #[test]
+    fn switching_the_language_renames_the_mobile_row() {
+        let html = Owner::new().with(|| {
+            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            language_signal().set(Language::Fr);
+            shell.to_html()
+        });
+        let mobile = mobile(&html);
+        let row = &mobile[mobile.find(&globe()).unwrap()..];
+        let row = &row[..row.find("</button>").unwrap()];
+        assert!(row.contains("Français"), "{row}");
+    }
+
+    #[test]
+    fn desktop_and_mobile_show_the_same_language() {
+        let html = render_cookies(Some("pc_lang=vi"));
+        assert!(rail(&html).contains("Tiếng Việt"), "{html}");
+        let mobile = mobile(&html);
+        let row = &mobile[mobile.find(&globe()).unwrap()..];
+        assert!(
+            row[..row.find("</button>").unwrap()].contains("Tiếng Việt"),
+            "{row}"
+        );
+    }
+
+    #[test]
+    fn the_shell_speaks_the_current_language() {
+        let html = render_cookies(Some("pc_lang=vi"));
+        assert!(html.contains("Cài đặt"), "Settings: {html}");
+        assert!(html.contains("Giao diện"), "Appearance: {html}");
+        assert!(
+            html.contains(r#"aria-label="Mở thanh điều hướng""#),
+            "{html}"
+        );
+        assert!(
+            html.contains(r#"aria-label="Đóng thanh điều hướng""#),
+            "the ✕: {html}"
+        );
+        for english in [
+            "Settings",
+            "Appearance",
+            "Open navigation",
+            "Close navigation",
+        ] {
+            assert!(!html.contains(english), "{english}: {html}");
+        }
+    }
+
+    #[test]
+    fn switching_the_language_re_renders_the_language_entry_and_settings() {
+        let html = Owner::new().with(|| {
+            let language = language_signal();
+            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            language.set(Language::Fr);
+            shell.to_html()
+        });
+        let rail = rail(&html);
+        assert!(rail.contains("Français"), "{rail}");
+        assert!(!rail.contains("English"), "{rail}");
+        assert!(rail.contains("Paramètres"), "{rail}");
+        assert!(!html.contains("Settings"), "{html}");
+        assert!(!html.contains("Open navigation"), "{html}");
+    }
+
+    /// T5, as far as SSR goes: switched twice, the shell still holds one
+    /// desktop language menu, its check on the last choice. (Its window
+    /// listeners are browser-only: task 024.)
+    #[test]
+    fn switching_twice_keeps_one_language_menu() {
+        let html = Owner::new().with(|| {
+            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            language_signal().set(Language::Fr);
+            language_signal().set(Language::Vi);
+            shell.to_html()
+        });
+        assert_eq!(html.matches(r#"id="pc-language""#).count(), 1, "{html}");
+        let panel = &html[html.find(r#"id="pc-language""#).unwrap()..];
+        let checked = &panel[panel.find(r#"aria-checked="true""#).unwrap()..];
+        assert!(checked[..checked.find("</button>").unwrap()].contains("Tiếng Việt"));
+    }
+
+    /// T11: switched twice, every piece re-rendered on a switch speaks the
+    /// last language — an app's nav entry, the rail's language entry, the
+    /// Settings entry and the theme picker.
+    #[test]
+    fn switching_twice_re_renders_in_the_last_language() {
+        use crate::{NavEntry, NavSection};
+        let html = Owner::new().with(|| {
+            let language = language_signal();
+            let sections = Signal::derive(move || {
+                let label = match language.get() {
+                    Language::En => "Buttons",
+                    Language::Fr => "Boutons",
+                    Language::Vi => "Nút",
+                };
+                let entry = NavEntry {
+                    label,
+                    icon: IconName::Button,
+                    href: "/buttons",
+                };
+                vec![NavSection {
+                    title: None,
+                    entries: vec![entry],
+                }]
+            });
+            let nav = NavList::new(sections, "/".to_string());
+            let shell = view! { <AppShell nav=nav><p>"page"</p></AppShell> };
+            language.set(Language::Fr);
+            language.set(Language::Vi);
+            shell.to_html()
+        });
+        let rail = rail(&html);
+        for vi in ["Nút", "Tiếng Việt", "Cài đặt"] {
+            assert!(rail.contains(vi), "{vi}: {rail}");
+        }
+        assert!(html.contains("Sáng"), "the theme picker's Light: {html}");
+        // ("Français" stays: the language menus list every endonym.)
+        for other in ["Boutons", "Buttons", "Paramètres", "Clair", ">Light<"] {
+            assert!(!html.contains(other), "{other}: {html}");
+        }
+    }
+
+    #[test]
+    fn a_collapsed_rail_fades_the_language_label_like_settings() {
+        for (rail_open, faded) in [("false", true), ("true", false)] {
+            let html = render(Some(rail_open));
+            let rail = rail(&html);
+            for label in ["English", "Settings"] {
+                let before = &rail[..rail.find(&format!(">{label}")).unwrap()];
+                let span = &before[before.rfind("<span").unwrap()..];
+                assert_eq!(span.contains("opacity-0"), faded, "{label}: {span}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_language_and_settings_disclosures_are_distinct() {
+        let html = render(None);
+        assert_eq!(
+            html.matches(r#"aria-controls="pc-language""#).count(),
+            1,
+            "{html}"
+        );
+        assert_eq!(
+            html.matches(r#"aria-controls="pc-settings""#).count(),
+            2,
+            "{html}"
+        );
+        assert_eq!(html.matches(r#"id="pc-language""#).count(), 1, "{html}");
+        assert_eq!(html.matches(r#"id="pc-settings""#).count(), 1, "{html}");
+    }
+
+    /// The shell's state, built as `AppShell` builds it, with the rail
+    /// open and the desktop language menu `language_open`.
+    fn open_shell(language_open: bool) -> ShellState {
+        let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+        let state = expect_context::<ShellState>();
+        state.rail_open.set(true);
+        state.language_open.set(language_open);
+        state
+    }
+
+    #[test]
+    fn escape_on_the_open_language_menu_closes_only_the_menu() {
+        Owner::new().with(|| {
+            let state = open_shell(true);
+            escape(state);
+            assert!(!state.language_open.get_untracked(), "the menu closes");
+            assert!(
+                state.rail_open.get_untracked(),
+                "the rail stays open, and pc_rail is not rewritten"
+            );
+        });
+    }
+
+    #[test]
+    fn escape_on_the_open_settings_dialog_closes_only_the_dialog() {
+        Owner::new().with(|| {
+            let state = open_shell(false);
+            state.settings_open.set(true);
+            escape(state);
+            assert!(
+                state.rail_open.get_untracked(),
+                "the rail stays open, and pc_rail is not rewritten"
+            );
+            assert!(!state.settings_open.get_untracked(), "the dialog closes");
+        });
+    }
+
+    /// Settings opened from the mobile navigation: Escape lands back in
+    /// that navigation, it does not close it too.
+    #[test]
+    fn escape_on_settings_opened_from_the_mobile_navigation_keeps_the_navigation() {
+        Owner::new().with(|| {
+            let state = open_shell(false);
+            state.menu_open.set(true);
+            state.settings_open.set(true);
+            escape(state);
+            assert!(state.menu_open.get_untracked(), "the navigation stays");
+            assert!(!state.settings_open.get_untracked(), "the dialog closes");
+        });
+    }
+
+    /// Drilled into the mobile languages, Escape backs out one level, as
+    /// a submenu does on desktop: the navigation stays open, and the rail
+    /// as it was (`pc_rail` is not rewritten) (T19).
+    #[test]
+    fn escape_drilled_into_the_mobile_languages_backs_out_one_level() {
+        Owner::new().with(|| {
+            let state = open_shell(false);
+            state.menu_open.set(true);
+            state.language_path.set(vec![0]);
+            escape(state);
+            assert!(
+                state.language_path.get_untracked().is_empty(),
+                "back at the Language row"
+            );
+            assert!(state.menu_open.get_untracked(), "the navigation stays");
+            assert!(
+                state.rail_open.get_untracked(),
+                "the rail stays open, and pc_rail is not rewritten"
+            );
+        });
+    }
+
+    /// Settings opened from the drilled navigation: Escape closes the
+    /// dialog first (innermost first), the drill stays where it was.
+    #[test]
+    fn escape_on_settings_over_the_drilled_languages_closes_only_the_dialog() {
+        Owner::new().with(|| {
+            let state = open_shell(false);
+            state.menu_open.set(true);
+            state.language_path.set(vec![0]);
+            state.settings_open.set(true);
+            escape(state);
+            assert!(!state.settings_open.get_untracked(), "the dialog closes");
+            assert_eq!(state.language_path.get_untracked(), [0], "still drilled");
+            assert!(state.menu_open.get_untracked(), "the navigation stays");
+        });
+    }
+
+    #[test]
+    fn escape_with_no_menu_open_closes_the_rail_and_the_mobile_navigation() {
+        Owner::new().with(|| {
+            let state = open_shell(false);
+            state.menu_open.set(true);
+            escape(state);
+            assert!(!state.rail_open.get_untracked());
+            assert!(!state.menu_open.get_untracked());
+        });
+    }
+
+    /// The page's one language signal, provided at the app root: a
+    /// component beside the shell that asks first, in its own owner, and
+    /// the shell, in a sibling owner, read that same signal (T4).
+    #[test]
+    fn the_root_provides_one_language_signal_for_the_whole_page() {
+        let root = Owner::new();
+        root.with(|| {
+            let page = provide_language();
+            let beside = root.child().with(language_signal);
+            let shell = root.child().with(|| {
+                let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+                expect_context::<ShellState>().language
+            });
+            assert_eq!(beside, page, "a sibling of the shell");
+            assert_eq!(shell, page, "the shell's own");
+        });
+    }
+
+    /// An app that forgets the root call still gets one signal below the
+    /// shell: `AppShell` provides it, and every owner under it shares it.
+    #[test]
+    fn without_a_root_call_the_shell_provides_the_signal() {
+        let root = Owner::new();
+        root.with(|| {
+            let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let shell = expect_context::<ShellState>().language;
+            let below = root.child().with(|| root.child().with(language_signal));
+            assert_eq!(below, shell);
+        });
     }
 
     #[test]
@@ -482,6 +1088,25 @@ mod tests {
         assert_eq!(html.matches(r#"tabindex="-1""#).count(), 2, "{html}");
     }
 
+    /// The README's item rows say what the code above renders: the
+    /// default Settings hold a `ThemePicker`, never the former `Segmented`,
+    /// and the Theme row names the `ThemePicker` it is.
+    #[test]
+    fn the_readme_rows_name_the_theme_picker_of_the_default_settings() {
+        let readme = include_str!("../../README.md");
+        let row = |item: &str| {
+            readme
+                .lines()
+                .find(|line| line.starts_with(&format!("| `{item}`")))
+                .unwrap_or_else(|| panic!("a README row for {item}"))
+        };
+        for item in ["AppShell", "Theme"] {
+            let line = row(item);
+            assert!(line.contains("`ThemePicker`"), "{item}: {line}");
+            assert!(!line.contains("Segmented"), "{item}: {line}");
+        }
+    }
+
     #[test]
     fn no_env_badge_by_default() {
         let html = render(None);
@@ -586,6 +1211,54 @@ mod tests {
     }
 
     #[test]
+    fn the_rail_bottom_reads_language_then_settings_then_the_env_badge() {
+        use crate::EnvBadgeInfo;
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "a1b2c3f" }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        let rail = &html[html.find(r#"id="pc-rail""#).unwrap()..html.find("</nav>").unwrap()];
+        let at = |needle: &str| {
+            rail.find(needle)
+                .unwrap_or_else(|| panic!("{needle}: {rail}"))
+        };
+        let language = at(r#"aria-controls="pc-language""#);
+        let settings = at(r#"aria-controls="pc-settings""#);
+        let badge = at(r#"title="main · a1b2c3f""#);
+        assert!(language < settings && settings < badge, "{rail}");
+    }
+
+    /// Mobile, with an env badge: the badge sits in the top bar, and the
+    /// full-screen navigation still holds the Language row above Settings
+    /// — neither displaces the other (T21).
+    #[test]
+    fn on_mobile_the_badge_and_the_language_row_show_together() {
+        use crate::EnvBadgeInfo;
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "a1b2c3f" }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        let header = &html[html.find("<header").unwrap()..html.find("</header>").unwrap()];
+        assert!(header.contains(r#"title="main · a1b2c3f""#), "{header}");
+        let mobile = mobile(&html);
+        let language = mobile
+            .find(&globe())
+            .unwrap_or_else(|| panic!("the Language row: {mobile}"));
+        let settings = mobile
+            .find(r#"aria-controls="pc-settings""#)
+            .expect("Settings");
+        assert!(language < settings, "{mobile}");
+    }
+
+    #[test]
     fn an_app_can_override_settings_with_its_own_view() {
         let html = Owner::new().with(|| {
             view! {
@@ -600,5 +1273,29 @@ mod tests {
             !html.contains("Appearance"),
             "not kept unless the app adds it back: {html}"
         );
+    }
+
+    /// The Settings dialog is wired once, with the shell — never rebuilt
+    /// when the language changes: a rebuild would install a new Escape
+    /// listener and a new focus manager each time (the window listeners
+    /// are not removed with the old view). Built, switched twice, then
+    /// opened: exactly one focus manager moves focus into it. A dialog
+    /// rebuilt inside a closure is not even wired before a render (no
+    /// move), and one rebuilt per switch would move focus once per copy.
+    #[test]
+    fn switching_the_language_keeps_the_one_settings_dialog() {
+        use crate::focus_trap::fake::{self, settle};
+        fake::run(async || {
+            let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let state = expect_context::<ShellState>();
+            settle().await;
+            language_signal().set(Language::Fr);
+            settle().await;
+            language_signal().set(Language::Vi);
+            settle().await;
+            state.settings_open.set(true);
+            settle().await;
+            assert_eq!(fake::moves().focus_into, ["pc-settings"]);
+        });
     }
 }

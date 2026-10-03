@@ -23,13 +23,16 @@
 use leptos::html;
 use leptos::prelude::*;
 
+use leptos_i18n::td_string;
+
 use crate::button::{Disclosure, Size, Variant, classes};
+use crate::catalogue::strings;
 use crate::icon::{Icon, IconName};
 use crate::popover::{PANEL, Popover};
 
 /// The index chosen at each depth, root to the deepest open submenu; shared
 /// by every level of one [`Menu`] or [`DrillMenu`].
-type Path = RwSignal<Vec<usize>>;
+pub(crate) type Path = RwSignal<Vec<usize>>;
 
 /// One entry of a [`Menu`] or [`DrillMenu`].
 #[derive(Clone)]
@@ -94,7 +97,11 @@ fn items_at<'a>(items: &'a [MenuItem], path: &[usize]) -> &'a [MenuItem] {
 
 /// The icon, label and right-aligned extra (a chevron, a check mark) of one
 /// row, shared by every kind of item.
-fn item_row(icon: Option<IconName>, label: &'static str, right: impl IntoView) -> impl IntoView {
+pub(crate) fn item_row(
+    icon: Option<IconName>,
+    label: impl IntoView,
+    right: impl IntoView,
+) -> impl IntoView {
     view! {
         <span class="flex flex-1 items-center gap-3">
             {icon.map(|name| view! { <Icon name=name /> })}
@@ -412,7 +419,7 @@ fn SubmenuTrigger(
 /// [`MenuItem::Custom`] as one row; used by both the desktop and the mobile
 /// rendering (a [`MenuItem::Submenu`] is handled by its own caller — it
 /// behaves differently on each).
-fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoView {
+pub(crate) fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoView {
     match item {
         MenuItem::Link { label, icon, href } => view! {
             <a href=href role="menuitem" class=classes(Variant::Nav, Size::Md, "w-full")>
@@ -494,9 +501,11 @@ pub fn DrillMenu(
 }
 
 /// The "Back" row of a [`DrillMenu`]: shown only once drilled into a
-/// submenu, it drops the deepest level of `path`.
+/// submenu, it drops the deepest level of `path`. Its label is the
+/// library's own string, in the current language.
 #[component]
-fn BackRow(path: Path) -> impl IntoView {
+pub(crate) fn BackRow(path: Path) -> impl IntoView {
+    let t = strings();
     view! {
         <button
             type="button"
@@ -508,7 +517,7 @@ fn BackRow(path: Path) -> impl IntoView {
                 });
             }
         >
-            {item_row(Some(IconName::ArrowLeft), "Back", ())}
+            {item_row(Some(IconName::ArrowLeft), move || td_string!(t.locale(), back), ())}
         </button>
     }
 }
@@ -540,6 +549,7 @@ fn DrillItem(item: MenuItem, path: Path, index: usize, close_all: Callback<()>) 
 mod tests {
     use super::*;
     use crate::button::Disclosed;
+    use crate::language::{Language, language_signal};
 
     fn theme_items() -> Vec<MenuItem> {
         let selected = RwSignal::new(0_u8);
@@ -628,6 +638,24 @@ mod tests {
         });
         assert!(html.contains(r#"role="menuitemradio""#), "{html}");
         assert!(html.contains(r#"aria-checked="true""#), "{html}");
+    }
+
+    #[test]
+    fn the_back_row_speaks_the_current_language() {
+        for (language, back) in [
+            (Language::En, "Back"),
+            (Language::Fr, "Retour"),
+            (Language::Vi, "Quay lại"),
+        ] {
+            let html = Owner::new().with(|| {
+                language_signal().set(language);
+                view! { <DrillMenu items=theme_items() /> }.to_html()
+            });
+            assert!(
+                html.contains(&format!("<span>{back}</span>")),
+                "{language}: {html}"
+            );
+        }
     }
 
     #[test]

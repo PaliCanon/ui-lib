@@ -37,18 +37,25 @@ pub struct NavSection {
 /// marks the current entry).
 #[derive(Clone, Debug)]
 pub struct NavList {
-    /// The sections, top to bottom.
-    pub sections: Vec<NavSection>,
+    /// The sections, top to bottom, followed live: an app that derives
+    /// them from its catalogue in the current
+    /// [`Language`](crate::language::Language) sees its rail and mobile
+    /// entries switch language with everything else.
+    pub sections: Signal<Vec<NavSection>>,
     /// The path of the page being shown, followed live.
     pub current: Signal<String>,
 }
 
 impl NavList {
-    /// A list of `sections`; `current` is the path being shown.
+    /// A list of `sections` (a plain `Vec`, or a signal to follow);
+    /// `current` is the path being shown.
     #[must_use]
-    pub fn new(sections: Vec<NavSection>, current: impl Into<Signal<String>>) -> Self {
+    pub fn new(
+        sections: impl Into<Signal<Vec<NavSection>>>,
+        current: impl Into<Signal<String>>,
+    ) -> Self {
         Self {
-            sections,
+            sections: sections.into(),
             current: current.into(),
         }
     }
@@ -59,19 +66,23 @@ impl NavList {
 #[component]
 pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> impl IntoView {
     let current = nav.current;
-    nav.sections
-        .into_iter()
-        .map(|section| {
-            view! {
-                <SectionTitle title=section.title shown=open />
-                {section
-                    .entries
-                    .into_iter()
-                    .map(|entry| view! { <Entry entry=entry current=current size=Size::Md shown=open /> })
-                    .collect_view()}
-            }
-        })
-        .collect_view()
+    let sections = nav.sections;
+    move || {
+        sections
+            .get()
+            .into_iter()
+            .map(|section| {
+                view! {
+                    <SectionTitle title=section.title shown=open />
+                    {section
+                        .entries
+                        .into_iter()
+                        .map(|entry| view! { <Entry entry=entry current=current size=Size::Md shown=open /> })
+                        .collect_view()}
+                }
+            })
+            .collect_view()
+    }
 }
 
 /// The sections of `nav` as the mobile navigation shows them: large rows,
@@ -79,19 +90,23 @@ pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> im
 #[component]
 pub(crate) fn MobileSections(nav: NavList) -> impl IntoView {
     let current = nav.current;
-    nav.sections
-        .into_iter()
-        .map(|section| {
-            view! {
-                <SectionTitle title=section.title shown=Signal::derive(|| true) />
-                {section
-                    .entries
-                    .into_iter()
-                    .map(|entry| view! { <Entry entry=entry current=current size=Size::Lg shown=Signal::derive(|| true) /> })
-                    .collect_view()}
-            }
-        })
-        .collect_view()
+    let sections = nav.sections;
+    move || {
+        sections
+            .get()
+            .into_iter()
+            .map(|section| {
+                view! {
+                    <SectionTitle title=section.title shown=Signal::derive(|| true) />
+                    {section
+                        .entries
+                        .into_iter()
+                        .map(|entry| view! { <Entry entry=entry current=current size=Size::Lg shown=Signal::derive(|| true) /> })
+                        .collect_view()}
+                }
+            })
+            .collect_view()
+    }
 }
 
 /// A section's title; a section without one still gets the spacing.
@@ -177,6 +192,49 @@ mod tests {
             3,
             "while closed, the title and both labels fade out: {out}"
         );
+    }
+
+    /// A list whose one entry says "Buttons" or "Boutons" after the
+    /// language: an app's catalogue, in miniature.
+    fn translated_list(french: RwSignal<bool>) -> NavList {
+        let sections = Signal::derive(move || {
+            vec![NavSection {
+                title: None,
+                entries: vec![NavEntry {
+                    label: if french.get() { "Boutons" } else { "Buttons" },
+                    icon: IconName::Button,
+                    href: "/buttons",
+                }],
+            }]
+        });
+        NavList::new(sections, "/".to_string())
+    }
+
+    #[test]
+    fn switching_the_language_re_renders_a_rail_entrys_label() {
+        let out = Owner::new().with(|| {
+            let french = RwSignal::new(false);
+            // Built before the switch, rendered after it: a rail that read
+            // its sections once, when created, would still say "Buttons".
+            let rail =
+                view! { <RailSections nav=translated_list(french) open=Signal::derive(|| true) /> };
+            french.set(true);
+            rail.to_html()
+        });
+        assert!(out.contains("Boutons"), "{out}");
+        assert!(!out.contains("Buttons"), "{out}");
+    }
+
+    #[test]
+    fn switching_the_language_re_renders_a_mobile_entrys_label() {
+        let out = Owner::new().with(|| {
+            let french = RwSignal::new(false);
+            let rows = view! { <MobileSections nav=translated_list(french) /> };
+            french.set(true);
+            rows.to_html()
+        });
+        assert!(out.contains("Boutons"), "{out}");
+        assert!(!out.contains("Buttons"), "{out}");
     }
 
     #[test]

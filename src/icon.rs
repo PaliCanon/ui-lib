@@ -36,6 +36,8 @@ pub enum IconName {
     Close,
     /// A window with a header bar: the gallery's dialog page.
     Dialog,
+    /// A globe: the language entry of the rail and of the mobile navigation.
+    Globe,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -61,6 +63,12 @@ fn paths(name: IconName) -> &'static [&'static str] {
             "M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
             // The header bar's divider.
             "M2 9h20",
+        ],
+        IconName::Globe => &[
+            // The sphere, its equator, and one meridian.
+            "M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z",
+            "M2 12h20",
+            "M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z",
         ],
         other => core_paths(other),
     }
@@ -173,6 +181,7 @@ mod tests {
             IconName::Grid,
             IconName::Close,
             IconName::Dialog,
+            IconName::Globe,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }
