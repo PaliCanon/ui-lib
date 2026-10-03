@@ -26,6 +26,12 @@ pub enum IconName {
     ChevronRight,
     /// A check mark: the selected choice of a [`crate::menu::MenuItem::Choice`].
     Check,
+    /// Three stacked lines: the gallery's menu page.
+    Menu,
+    /// A speech-bubble panel: the gallery's popover page.
+    Popover,
+    /// A 2x2 grid of squares: the gallery's icons page.
+    Grid,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -75,6 +81,17 @@ fn paths(name: IconName) -> &'static [&'static str] {
         IconName::ArrowLeft => &["M19 12H5", "M11 18l-6-6 6-6"],
         IconName::ChevronRight => &["M9 18l6-6-6-6"],
         IconName::Check => &["M20 6L9 17l-5-5"],
+        IconName::Menu => &["M3 12h18", "M3 6h18", "M3 18h18"],
+        IconName::Popover => &[
+            // A rounded panel with a small tail, pointing down-left.
+            "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+        ],
+        IconName::Grid => &[
+            "M3 3h7v7H3z",
+            "M14 3h7v7h-7z",
+            "M14 14h7v7h-7z",
+            "M3 14h7v7H3z",
+        ],
     }
 }
 
@@ -117,5 +134,24 @@ mod tests {
         assert!(out.contains(r#"stroke="currentColor""#), "{out}");
         assert!(out.contains(r#"width="20""#), "{out}");
         assert_eq!(out.matches("<path").count(), paths(IconName::Button).len());
+    }
+
+    #[test]
+    fn every_icon_draws_at_least_one_path() {
+        for name in [
+            IconName::Button,
+            IconName::Gear,
+            IconName::Sun,
+            IconName::Moon,
+            IconName::Monitor,
+            IconName::ArrowLeft,
+            IconName::ChevronRight,
+            IconName::Check,
+            IconName::Menu,
+            IconName::Popover,
+            IconName::Grid,
+        ] {
+            assert!(!paths(name).is_empty(), "{name:?}");
+        }
     }
 }
