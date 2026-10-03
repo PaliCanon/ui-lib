@@ -8,14 +8,19 @@
 //! - A [`MenuItem::Choice`] runs its callback and the menu stays open: it is
 //!   one of a group, marked with a check mark when selected.
 //! - A [`MenuItem::Submenu`] opens a nested list: on desktop, hover
-//!   (`pointerenter`), a click, or ArrowRight; ArrowLeft or Escape closes
+//!   (`pointerenter`), a click, or `ArrowRight`; `ArrowLeft` or Escape closes
 //!   the deepest open one, an outside click (or choosing an action or a
-//!   link) closes the whole menu. On mobile, choosing it drills down.
+//!   link) closes the whole menu. On mobile, choosing it drills down. Its
+//!   panel opens to the entry's right, sized to its widest row
+//!   ([`MenuLevel`]'s `w-max min-w-56`) and aligned with the entry; once
+//!   visible, [`position_submenu`] clamps it to the viewport (shifted up,
+//!   or to the entry's left) if it would otherwise run off-screen.
 //!
 //! Settings ([`crate::shell::AppShell`]'s `settings` prop) is a `Menu`: an
 //! app can pass its own items, any depth of submenus, alongside or instead
 //! of [`crate::theme::theme_menu`].
 
+use leptos::html;
 use leptos::prelude::*;
 
 use crate::button::{Disclosure, Size, Variant, classes};
@@ -162,7 +167,7 @@ fn MenuLevel(
     view! {
         <div
             role="menu"
-            class="flex w-56 flex-col gap-0.5 p-1"
+            class="flex w-max min-w-56 flex-col gap-0.5 p-1"
             on:keydown=move |ev| level_keydown(ev, path)
         >
             {items
@@ -176,10 +181,10 @@ fn MenuLevel(
     }
 }
 
-/// Escape or ArrowLeft, with a submenu open anywhere in this `Menu`, closes
+/// Escape or `ArrowLeft`, with a submenu open anywhere in this `Menu`, closes
 /// just the deepest one and stops the event from also reaching the
 /// `Popover`'s own Escape listener on `window` (it bubbles here first, from
-/// whichever item has focus). ArrowUp and ArrowDown move focus among this
+/// whichever item has focus). `ArrowUp` and `ArrowDown` move focus among this
 /// level's own items (hydrate only: they need the DOM).
 fn level_keydown(ev: leptos::ev::KeyboardEvent, path: Path) {
     let key = ev.key();
@@ -234,6 +239,52 @@ fn move_focus(menu: &web_sys::Element, forward: bool) {
     }
 }
 
+/// How far a submenu panel must stay clear of the viewport's bottom edge
+/// once [`position_submenu`] clamps it: half a rem at the default 16px root
+/// font size.
+#[cfg(feature = "hydrate")]
+const SUBMENU_VIEWPORT_MARGIN_PX: f64 = 8.0;
+
+/// Clamps a submenu panel (`panel`, the `relative`-positioned `div` right
+/// after its [`SubmenuTrigger`]) to the viewport once it is visible. By
+/// default it opens to the entry's right, aligned with it (the `-top-3
+/// left-full` classes in [`desktop_item_content`], undoing the padding the
+/// panel and its own [`MenuLevel`] add so the first row lines up with the
+/// entry). After the browser lays the now-visible panel out, this measures
+/// it and, only if it would overflow: shifts it up so its bottom stays
+/// [`SUBMENU_VIEWPORT_MARGIN_PX`] clear of the viewport's bottom, and flips
+/// it to the entry's left when there is no room on the right. A no-op
+/// during SSR — there is no window there to measure against.
+#[cfg(feature = "hydrate")]
+fn position_submenu(panel: NodeRef<html::Div>) {
+    request_animation_frame(move || {
+        let Some(el) = panel.get_untracked() else { return };
+        // Fully qualified: `web_sys::HtmlElement::style` would otherwise be
+        // shadowed by tachys's own `style` attribute-setter extension trait.
+        let style = web_sys::HtmlElement::style(&el);
+        for prop in ["top", "left", "right", "margin-left", "margin-right"] {
+            let _ = style.remove_property(prop);
+        }
+        let rect = el.get_bounding_client_rect();
+        let win = window();
+        let height = win.inner_height().ok().and_then(|v| v.as_f64()).unwrap_or(rect.bottom());
+        let width = win.inner_width().ok().and_then(|v| v.as_f64()).unwrap_or(rect.right());
+        let overflow = rect.bottom() - (height - SUBMENU_VIEWPORT_MARGIN_PX);
+        if overflow > 0.0 {
+            let _ = style.set_property("top", &format!("calc(-0.75rem - {overflow}px)"));
+        }
+        if rect.right() > width {
+            let _ = style.set_property("left", "auto");
+            let _ = style.set_property("right", "100%");
+            let _ = style.set_property("margin-left", "0");
+            let _ = style.set_property("margin-right", "0.25rem");
+        }
+    });
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn position_submenu(_panel: NodeRef<html::Div>) {}
+
 /// One item of a [`MenuLevel`], wrapped in a `relative` container so a
 /// [`MenuItem::Submenu`]'s panel can be positioned `absolute` against it.
 #[component]
@@ -266,10 +317,17 @@ fn desktop_item_content(
                     p.push(index);
                 });
             });
+            let panel_ref: NodeRef<html::Div> = NodeRef::new();
+            Effect::new(move |_| {
+                if open.get() {
+                    position_submenu(panel_ref);
+                }
+            });
             view! {
                 <SubmenuTrigger label=label icon=icon open=open on_open=on_open />
                 <div
-                    class=format!("{PANEL} absolute top-0 left-full z-10 ml-1 w-56")
+                    node_ref=panel_ref
+                    class=format!("{PANEL} absolute -top-3 left-full z-10 ml-1")
                     hidden=move || !open.get()
                 >
                     <MenuLevel items=items path=path depth=depth + 1 close_all=close_all />
@@ -478,6 +536,22 @@ mod tests {
         );
         assert!(html.contains(r#"role="menuitem""#), "{html}");
         assert!(html.contains(r#"aria-haspopup="true""#), "{html}");
+    }
+
+    #[test]
+    fn a_submenu_panel_opens_right_aligned_and_sized_to_its_widest_row() {
+        let html = Owner::new().with(|| {
+            let controls = Disclosed::new("pc-settings", RwSignal::new(true));
+            view! { <Menu controls=controls aria_label="Settings" items=theme_items() /> }.to_html()
+        });
+        assert!(
+            html.contains("absolute -top-3 left-full"),
+            "opens to the right, aligned with its entry by default: {html}"
+        );
+        assert!(
+            html.contains("w-max min-w-56"),
+            "sized to its widest row, never a fixed width rows can overflow: {html}"
+        );
     }
 
     #[test]
