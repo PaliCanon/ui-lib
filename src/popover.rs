@@ -38,6 +38,7 @@ pub fn Popover<D: Disclosure>(
 ) -> impl IntoView {
     close_on_outside_interaction(controls);
     let panel: NodeRef<leptos::html::Div> = NodeRef::new();
+    #[cfg(feature = "hydrate")]
     Effect::new(move |_| {
         if controls.is_open() {
             flip_if_overflowing(panel);
@@ -88,9 +89,6 @@ fn flip_if_overflowing(panel: NodeRef<leptos::html::Div>) {
         }
     });
 }
-
-#[cfg(not(feature = "hydrate"))]
-fn flip_if_overflowing(_panel: NodeRef<leptos::html::Div>) {}
 
 /// The browser only: Escape, or a click outside the panel and its trigger,
 /// closes `controls`. There is no window while the server renders.

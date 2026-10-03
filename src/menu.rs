@@ -138,6 +138,7 @@ pub fn Menu<D: Disclosure>(
     let path: Path = RwSignal::new(Vec::new());
     // Collapsed submenus the next time it opens: reopening a menu always
     // starts at its top level.
+    #[cfg(feature = "hydrate")]
     Effect::new(move |_| {
         if !controls.is_open() {
             path.set(Vec::new());
@@ -260,7 +261,8 @@ const SUBMENU_VIEWPORT_MARGIN_PX: f64 = 8.0;
 /// 4. Horizontally, it opens to the entry's right, or to its left when it
 ///    would run past the viewport's right edge.
 ///
-/// A no-op during SSR: there is no window to measure against.
+/// The browser only: there is no window to measure against while the
+/// server renders.
 #[cfg(feature = "hydrate")]
 fn position_submenu(panel: NodeRef<html::Div>) {
     request_animation_frame(move || {
@@ -319,9 +321,6 @@ fn place_vertically(
     }
 }
 
-#[cfg(not(feature = "hydrate"))]
-fn position_submenu(_panel: NodeRef<html::Div>) {}
-
 /// One item of a [`MenuLevel`], wrapped in a `relative` container so a
 /// [`MenuItem::Submenu`]'s panel can be positioned `absolute` against it.
 #[component]
@@ -355,6 +354,7 @@ fn desktop_item_content(
                 });
             });
             let panel_ref: NodeRef<html::Div> = NodeRef::new();
+            #[cfg(feature = "hydrate")]
             Effect::new(move |_| {
                 if open.get() {
                     position_submenu(panel_ref);

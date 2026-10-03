@@ -3,16 +3,17 @@
 //!
 //! The choice is [`persisted`](fn@crate::persisted) under `pc_theme`, held by
 //! [`theme_signal`] — created once per render and reused after that (through
-//! Leptos context), so [`crate::shell::AppShell`]'s own state and a
-//! [`theme_menu`] an app builds *before* `AppShell` runs (to compose its own
-//! `settings`) refer to the very same signal. "Light" and "Dark" are
-//! applied by setting `data-theme` on `<html>`; "System" is the absence of
-//! that attribute, so `lab/style/theme.css` follows the device live. The
-//! server reads the cookie to set the attribute on the very first render
-//! ([`theme_attribute`]); once hydrated, an `Effect` in
+//! Leptos context), so [`crate::shell::AppShell`]'s own state and whatever
+//! an app builds with it *before* `AppShell` runs (its own `settings`
+//! content, a [`theme_menu`]) refer to the very same signal. "Light" and
+//! "Dark" are applied by setting `data-theme` on `<html>`; "System" is the
+//! absence of that attribute, so `lab/style/theme.css` follows the device
+//! live. The server reads the cookie to set the attribute on the very
+//! first render ([`theme_attribute`]); once hydrated, an `Effect` in
 //! [`crate::shell::AppShell`] keeps it in sync with later choices. It is
-//! chosen from [`theme_menu`], the default of [`crate::shell::AppShell`]'s
-//! `settings`.
+//! chosen in Settings: the default of `AppShell`'s `settings` is an
+//! Appearance section holding the theme choice. [`theme_menu`] stays as a
+//! helper for apps that want the theme as a menu instead.
 
 use std::fmt;
 use std::str::FromStr;
@@ -95,8 +96,8 @@ pub fn theme_attribute() -> Option<&'static str> {
 /// The reading theme: [`persisted`](fn@crate::persisted) under `pc_theme` the
 /// first time anything in this render asks for it, then reused (through
 /// Leptos context) by every later call in the same owner tree — in
-/// particular, an app that calls [`theme_menu`] to compose its own
-/// `settings` *before* [`crate::shell::AppShell`] runs still ends up
+/// particular, an app that reads it to build its own `settings` (or a
+/// [`theme_menu`]) *before* [`crate::shell::AppShell`] runs still ends up
 /// sharing `AppShell`'s own [`crate::shell::ShellState::theme`], since
 /// `AppShell` renders as that app's child and context flows down to it.
 #[must_use]
@@ -116,10 +117,11 @@ const CHOICES: [(Theme, IconName, &str); 3] = [
     (Theme::Dark, IconName::Moon, "Dark"),
 ];
 
-/// The Settings entry for the reading theme: a submenu of System, Light and
-/// Dark, each a [`MenuItem::Choice`] bound to [`theme_signal`]. The default
-/// of [`crate::shell::AppShell`]'s `settings`; an app that overrides it
-/// calls this itself, alongside its own items, to keep the theme choice.
+/// The reading theme as a menu entry: a submenu of System, Light and Dark,
+/// each a [`MenuItem::Choice`] bound to [`theme_signal`]. Not what Settings
+/// shows — [`crate::shell::AppShell`]'s default `settings` is an Appearance
+/// section — but kept as a helper for an app that wants a theme menu (in a
+/// [`crate::menu::Menu`] of its own).
 #[must_use]
 pub fn theme_menu() -> MenuItem {
     let theme = theme_signal();

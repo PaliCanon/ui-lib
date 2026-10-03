@@ -13,6 +13,15 @@ http = { version = "1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location", "Element", "NodeList", "HtmlElement", "HtmlDivElement", "CssStyleDeclaration", "DomRect", "VisualViewport"] }
 
+[dev-dependencies]
+# The native test of focus_trap's glue and Dialog's wiring to it runs
+# reactive_graph's real Effect: `effects` on (off under ssr otherwise), on
+# a tokio executor. Every other Effect in the lab is browser-only
+# (#[cfg(feature = "hydrate")]), so no other SSR test spawns one.
+reactive_graph = { version = "0.2", features = ["effects"] }
+any_spawner = { version = "0.3", features = ["tokio"] }
+tokio = { version = "1", features = ["rt"] }
+
 [features]
 ssr = ["leptos/ssr", "dep:http"]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:web-sys"]

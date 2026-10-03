@@ -5,7 +5,9 @@
 //! full-screen sheet (no margins; nothing of the backdrop shows behind it
 //! anyway). At most one `Dialog` is open at a time: opening a second one
 //! closes the first immediately, with a single focus move into the new one
-//! (see the internal `focus_trap` module).
+//! — unless the first is not `dismissable`, which refuses the second (it
+//! stays closed) until its own action closes it (see the internal
+//! `focus_trap` module).
 //!
 //! First used by [`crate::shell::AppShell`]'s Settings.
 
@@ -30,10 +32,11 @@ pub fn Dialog<D: Disclosure>(
     /// Its header title; also its accessible name (`aria-labelledby`).
     #[prop(into)]
     title: String,
-    /// Backdrop click and Escape close it, and the header shows a close
-    /// button, while this is true (the default). Set to `false` for a
-    /// required confirmation: only the caller's own action (in `footer`)
-    /// can close it.
+    /// Backdrop click and Escape close it, the header shows a close
+    /// button, and another `Dialog` opening replaces it, while this is true
+    /// (the default). Set to `false` for a required confirmation: only the
+    /// caller's own action (in `footer`) can close it, and another `Dialog`
+    /// asking to open meanwhile is refused (it stays closed).
     #[prop(default = true)]
     dismissable: bool,
     /// Pinned under the body, e.g. Primary and Ghost [`Button`]s.
@@ -47,7 +50,7 @@ pub fn Dialog<D: Disclosure>(
     /// [`DialogSection`]s.
     children: Children,
 ) -> impl IntoView {
-    focus_trap::manage(controls);
+    focus_trap::manage(controls, dismissable);
     close_on_escape(controls, dismissable);
     let title_id = format!("{}-title", controls.id());
     let header_title_id = title_id.clone();
@@ -276,5 +279,57 @@ mod tests {
         assert!(html.contains("Appearance"), "{html}");
         assert!(html.contains("Language"), "{html}");
         assert_eq!(html.matches("first:border-t-0").count(), 2, "{html}");
+    }
+}
+
+/// `Dialog`'s wiring to `focus_trap`, run natively on its recording page:
+/// the `dismissable` prop reaches the one-open rule.
+#[cfg(all(test, feature = "ssr"))]
+mod one_open_tests {
+    use super::*;
+    use crate::button::Disclosed;
+    use crate::focus_trap::fake::{self, settle};
+
+    /// A `Dialog` `id`, closed; its open flag.
+    fn dialog(id: &'static str, dismissable: bool) -> RwSignal<bool> {
+        let open = RwSignal::new(false);
+        let controls = Disclosed::new(id, open);
+        let _ = view! {
+            <Dialog controls=controls title="T" dismissable=dismissable>
+                <p>"body"</p>
+            </Dialog>
+        }
+        .to_html();
+        open
+    }
+
+    #[test]
+    fn a_non_dismissable_dialog_refuses_another_dialogs_open() {
+        fake::run(async || {
+            let confirm = dialog("pc-confirm", false);
+            let settings = dialog("pc-settings", true);
+            settle().await;
+            confirm.set(true);
+            settle().await;
+            settings.set(true);
+            settle().await;
+            assert!(confirm.get_untracked(), "the confirmation stays open");
+            assert!(!settings.get_untracked(), "Settings is refused");
+        });
+    }
+
+    #[test]
+    fn a_dismissable_dialog_is_replaced_by_another_dialogs_open() {
+        fake::run(async || {
+            let first = dialog("pc-first", true);
+            let second = dialog("pc-second", true);
+            settle().await;
+            first.set(true);
+            settle().await;
+            second.set(true);
+            settle().await;
+            assert!(!first.get_untracked(), "the first is replaced");
+            assert!(second.get_untracked(), "the second opens");
+        });
     }
 }
