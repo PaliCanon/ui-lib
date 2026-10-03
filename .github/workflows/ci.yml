@@ -1,0 +1,59 @@
+# From Lsh0x/rankfusion's ci.yml, adapted to a Leptos library: every check
+# runs for the server (`ssr`, native) and the browser (`hydrate`, wasm32),
+# the two builds a service makes of it.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  fmt:
+    name: rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: clippy (${{ matrix.feature }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - feature: ssr
+            target: ""
+          - feature: hydrate
+            target: "--target wasm32-unknown-unknown"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - run: cargo clippy --locked --features ${{ matrix.feature }} ${{ matrix.target }} --all-targets -- -D warnings
+
+  test:
+    name: test (ssr)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo test --locked --features ssr
+
+  docs:
+    name: rustdoc
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo doc --locked --no-deps --features ssr
