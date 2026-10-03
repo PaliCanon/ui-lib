@@ -40,9 +40,11 @@ pub fn cookie_assignment(name: &str, value: &str, host: &str) -> String {
     format!("{name}={value}; Path=/; Max-Age={MAX_AGE_SECONDS}; SameSite=Lax{domain}")
 }
 
-/// The cookie header of the request being rendered, on the server.
+/// The cookie header of the request being rendered, on the server. Also
+/// used by [`crate::theme::theme_attribute`] to read `pc_theme` for the
+/// first render.
 #[cfg(feature = "ssr")]
-fn request_cookies() -> Option<String> {
+pub(crate) fn request_cookies() -> Option<String> {
     let parts = use_context::<http::request::Parts>()?;
     let header = parts.headers.get(http::header::COOKIE)?;
     header.to_str().ok().map(str::to_owned)
@@ -50,7 +52,7 @@ fn request_cookies() -> Option<String> {
 
 /// `document.cookie`, in the browser.
 #[cfg(feature = "hydrate")]
-fn request_cookies() -> Option<String> {
+pub(crate) fn request_cookies() -> Option<String> {
     use wasm_bindgen::JsCast;
     let document = web_sys::window()?.document()?;
     document
@@ -61,7 +63,7 @@ fn request_cookies() -> Option<String> {
 }
 
 #[cfg(not(any(feature = "ssr", feature = "hydrate")))]
-fn request_cookies() -> Option<String> {
+pub(crate) fn request_cookies() -> Option<String> {
     None
 }
 

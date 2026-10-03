@@ -61,7 +61,8 @@ fn variant_classes(variant: Variant) -> &'static str {
         }
         Variant::Nav => {
             "w-full justify-start whitespace-nowrap rounded-xl text-muted hover:bg-chip hover:text-heading \
-             active:bg-chip-hover aria-[current=page]:bg-gold/15 aria-[current=page]:text-heading"
+             active:bg-chip-hover aria-[current=page]:bg-gold/15 aria-[current=page]:text-heading \
+             aria-checked:bg-gold/15 aria-checked:text-heading aria-expanded:bg-gold/15 aria-expanded:text-heading"
         }
         Variant::Ghost => {
             "justify-center rounded-sm text-gold underline underline-offset-4 hover:text-heading"
@@ -157,6 +158,13 @@ mod tests {
         for v in [Variant::Icon, Variant::Chip, Variant::Primary] {
             assert!(classes(v, Size::Md, "").contains("justify-center"), "{v:?}");
         }
+    }
+
+    #[test]
+    fn nav_entries_also_mark_a_checked_radio_or_an_open_disclosure() {
+        let c = classes(Variant::Nav, Size::Md, "");
+        assert!(c.contains("aria-checked:bg-gold/15"), "{c}");
+        assert!(c.contains("aria-expanded:bg-gold/15"), "{c}");
     }
 
     #[test]

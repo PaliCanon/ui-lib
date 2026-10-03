@@ -7,6 +7,7 @@
 //! | [`DisclosureButton`] | opens and closes a [`Disclosure`] | `aria-expanded`, `aria-controls` |
 //! | [`ToggleButton`] | on or off | `aria-pressed` |
 //! | [`LinkButton`] | goes to another page | `<a href>`, `aria-current` |
+//! | [`RadioButton`] | one choice of a group | `role="radio"`, `aria-checked` |
 //!
 //! [`Variant::Nav`] is the look of a navigation list's entries ([`crate::nav`]).
 
@@ -180,6 +181,47 @@ pub fn LinkButton(
         >
             {children()}
         </a>
+    }
+}
+
+/// One radio button of a group (`role="radio"`), for a single choice among
+/// several. `checked` says whether it is the group's current value; a click
+/// runs `on_select`, which sets it.
+#[component]
+pub fn RadioButton(
+    /// Whether this is the group's current choice.
+    #[prop(into)]
+    checked: Signal<bool>,
+    /// What choosing this one does, usually setting the group's value.
+    #[prop(into)]
+    on_select: Callback<leptos::ev::MouseEvent>,
+    /// The look; a chip by default.
+    #[prop(optional)]
+    variant: Variant,
+    /// The size; medium by default.
+    #[prop(optional)]
+    size: Size,
+    /// Its name for screen readers and its tooltip; needed when the content is only an icon.
+    #[prop(optional, into)]
+    label: Option<String>,
+    /// Layout classes added to the variant's (margin, width, position) — never colours.
+    #[prop(optional, into)]
+    layout: String,
+    /// The content: text, an icon, or both.
+    children: Children,
+) -> impl IntoView {
+    view! {
+        <button
+            type="button"
+            role="radio"
+            class=classes(variant, size, &layout)
+            aria-checked=move || checked.get().to_string()
+            aria-label=label.clone()
+            title=label
+            on:click=move |ev| on_select.run(ev)
+        >
+            {children()}
+        </button>
     }
 }
 

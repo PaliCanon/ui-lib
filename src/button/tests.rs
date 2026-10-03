@@ -48,6 +48,23 @@ fn a_toggle_button_is_pressed_or_not() {
 }
 
 #[test]
+fn a_radio_button_says_checked_and_is_named() {
+    let out = html(|| {
+        view! {
+            <RadioButton checked=true label="Light" on_select=|_| ()>"Light"</RadioButton>
+        }
+        .into_any()
+    });
+    assert!(out.contains(r#"role="radio""#), "{out}");
+    assert!(out.contains(r#"aria-checked="true""#), "{out}");
+    assert!(out.contains(r#"aria-label="Light""#), "{out}");
+    let unchecked = html(|| {
+        view! { <RadioButton checked=false on_select=|_| ()>"Dark"</RadioButton> }.into_any()
+    });
+    assert!(unchecked.contains(r#"aria-checked="false""#), "{unchecked}");
+}
+
+#[test]
 fn a_link_button_is_a_real_link_marked_current() {
     let current = html(|| {
         view! { <LinkButton href="https://palicanon.app" current=true>"Search"</LinkButton> }

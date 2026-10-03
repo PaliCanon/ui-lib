@@ -1,7 +1,14 @@
-/* PaliCanon identity: the three reading themes of the Tipiṭaka iOS app
-   (dark by default, light, sepia), as CSS variables swapped by
-   <html data-theme>, and exposed to Tailwind through @theme inline
-   (bg-page, text-gold, …). Copied from the current site unchanged. */
+/* PaliCanon identity: the two reading themes of the Tipiṭaka iOS app (dark
+   and the former sepia, now called light), plus system (follows the
+   device). As CSS variables swapped by <html data-theme>, and exposed to
+   Tailwind through @theme inline (bg-page, text-gold, …).
+
+   Selection order:
+   - data-theme="dark"  -> dark tokens (also the default: no attribute and
+     no light preference).
+   - data-theme="light" -> light tokens (the former sepia palette).
+   - no data-theme      -> prefers-color-scheme decides: light media query
+     matches light tokens, otherwise the :root default (dark) applies. */
 
 :root,
 :root[data-theme="dark"] {
@@ -30,30 +37,7 @@
   color-scheme: dark;
 }
 :root[data-theme="light"] {
-  --ps-page: #fdf6e3;
-  --ps-card: #f5ecd7;
-  --ps-card-edge: #e3d4b4;
-  --ps-chip: #f0e5cc;
-  --ps-chip-hover: #e8dab9;
-  --ps-line: #ede0c8;
-  --ps-field: #fffaf0;
-  --ps-heading: #2c1810;
-  --ps-ink: #3d2a1e;
-  --ps-muted: #5c4a3d;
-  --ps-subtle: #6f6152;
-  --ps-gold: #84590a;
-  --ps-gold-hover: #6e4a08;
-  --ps-on-gold: #fffaf0;
-  --ps-mark: rgb(232 163 23 / 0.22);
-  --ps-danger: #b03a3a;
-  --ps-glass: rgb(245 236 215 / 0.8);
-  --ps-glow: rgb(184 125 15 / 0.18);
-  --ps-halo: rgb(184 125 15 / 0.1);
-  --ps-card-from: #fffaf0;
-  --ps-card-to: #f5ecd7;
-  color-scheme: light;
-}
-:root[data-theme="sepia"] {
+  /* The iOS app's light theme (formerly "sepia"): warm parchment. */
   --ps-page: #f7eac6;
   --ps-card: #efdeb4;
   --ps-card-edge: #d8c28f;
@@ -76,6 +60,35 @@
   --ps-card-from: #fbf1d6;
   --ps-card-to: #efdeb4;
   color-scheme: light;
+}
+
+/* System: no data-theme attribute. Dark already is :root's default above;
+   only the light preference needs to override it. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --ps-page: #f7eac6;
+    --ps-card: #efdeb4;
+    --ps-card-edge: #d8c28f;
+    --ps-chip: #ecdaa9;
+    --ps-chip-hover: #e3cd93;
+    --ps-line: #decb9e;
+    --ps-field: #fbf1d6;
+    --ps-heading: #2c1810;
+    --ps-ink: #3d2a1e;
+    --ps-muted: #5c4a3d;
+    --ps-subtle: #6d5a35;
+    --ps-gold: #84590a;
+    --ps-gold-hover: #6e4a08;
+    --ps-on-gold: #fbf1d6;
+    --ps-mark: rgb(232 163 23 / 0.25);
+    --ps-danger: #a83535;
+    --ps-glass: rgb(239 222 180 / 0.8);
+    --ps-glow: rgb(184 125 15 / 0.2);
+    --ps-halo: rgb(184 125 15 / 0.12);
+    --ps-card-from: #fbf1d6;
+    --ps-card-to: #efdeb4;
+    color-scheme: light;
+  }
 }
 
 @theme inline {
