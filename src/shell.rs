@@ -1093,7 +1093,7 @@ mod tests {
     /// and the Theme row names the `ThemePicker` it is.
     #[test]
     fn the_readme_rows_name_the_theme_picker_of_the_default_settings() {
-        let readme = include_str!("../../README.md");
+        let readme = include_str!("../README.md");
         let row = |item: &str| {
             readme
                 .lines()

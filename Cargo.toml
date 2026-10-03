@@ -1,15 +1,17 @@
 [package]
-name = "palicanon-ui-lab"
-description = "PaliCanon's UI incubator: reusable Leptos pieces one project uses so far (promoted to PaliCanon/ui when a second one does)."
-version.workspace = true
-edition.workspace = true
-license.workspace = true
+name = "palicanon-ui-lib"
+description = "PaliCanon's UI library: the shell, components, theme, languages and motion every service builds on (promoted from ui-lab once validated)."
+version = "0.1.0"
+edition = "2024"
+license = "LicenseRef-Proprietary"
+repository = "https://github.com/PaliCanon/ui-lib"
+publish = false
 
 [dependencies]
-leptos.workspace = true
+leptos = "0.8"
 # Typed string catalogues, generated at build time (build.rs): a missing
 # key fails the build. Its own cookie and language detection are off: the
-# language is ui-lab's own `language_signal`.
+# language is the library's own `language_signal`.
 leptos_i18n = { version = "0.6.2", default-features = false }
 # Server side: the request's Cookie header (leptos_axum puts the request parts in context).
 http = { version = "1", optional = true }
@@ -28,7 +30,7 @@ serde_json = "1"
 [dev-dependencies]
 # The native test of focus_trap's glue and Dialog's wiring to it runs
 # reactive_graph's real Effect: `effects` on (off under ssr otherwise), on
-# a tokio executor. Every other Effect in the lab is browser-only
+# a tokio executor. Every other Effect in the library is browser-only
 # (#[cfg(feature = "hydrate")]), so no other SSR test spawns one.
 reactive_graph = { version = "0.2", features = ["effects"] }
 any_spawner = { version = "0.3", features = ["tokio"] }
@@ -40,5 +42,13 @@ serde_json = "1"
 ssr = ["leptos/ssr", "dep:http"]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:web-sys"]
 
-[lints]
-workspace = true
+[lints.rust]
+unsafe_code = "forbid"
+# Every public item is documented; CI denies warnings, so this is enforced.
+missing_docs = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+needless_pass_by_value = "allow" # Leptos components take their props by value

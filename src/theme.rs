@@ -7,7 +7,7 @@
 //! an app builds with it *before* `AppShell` runs (its own `settings`
 //! content, a [`theme_menu`]) refer to the very same signal. "Light" and
 //! "Dark" are applied by setting `data-theme` on `<html>`; "System" is the
-//! absence of that attribute, so `lab/style/theme.css` follows the device
+//! absence of that attribute, so `style/theme.css` follows the device
 //! live. The server reads the cookie to set the attribute on the very
 //! first render ([`theme_attribute`]); once hydrated, an `Effect` in
 //! [`crate::shell::AppShell`] keeps it in sync with later choices. It is
@@ -237,7 +237,7 @@ fn theme_preview(theme: Theme) -> ViewFn {
 /// tokens (`"light"` or `"dark"`) forced on this element through
 /// `data-theme`, regardless of the real page's own theme — the same
 /// subtree override the gallery's Theme page uses to show Light and Dark
-/// side by side (`lab/style/theme.css`'s `[data-theme="…"]` rules, which
+/// side by side (`style/theme.css`'s `[data-theme="…"]` rules, which
 /// match any element, not only `:root`). `clip`, given, clips it to one
 /// diagonal half: [`theme_preview`]'s System card overlays a light and a
 /// dark one this way. Spans throughout, displayed as blocks: it sits inside
