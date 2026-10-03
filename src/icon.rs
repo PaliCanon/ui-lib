@@ -72,10 +72,7 @@ fn paths(name: IconName) -> &'static [&'static str] {
             "M8 21h8",
             "M12 17v4",
         ],
-        IconName::ArrowLeft => &[
-            "M19 12H5",
-            "M11 18l-6-6 6-6",
-        ],
+        IconName::ArrowLeft => &["M19 12H5", "M11 18l-6-6 6-6"],
         IconName::ChevronRight => &["M9 18l6-6-6-6"],
         IconName::Check => &["M20 6L9 17l-5-5"],
     }

@@ -246,7 +246,11 @@ mod tests {
         Owner::new().with(|| {
             let first = theme_signal();
             first.set(Theme::Light);
-            assert_eq!(theme_signal().get(), Theme::Light, "the second call reused it");
+            assert_eq!(
+                theme_signal().get(),
+                Theme::Light,
+                "the second call reused it"
+            );
         });
     }
 }

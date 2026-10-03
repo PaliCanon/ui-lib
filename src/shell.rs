@@ -176,7 +176,11 @@ const CLOSE_LABEL: &str = "Close navigation";
 /// empty.
 #[component]
 fn DesktopRail(logo: &'static str, nav: Option<NavList>, settings: Vec<MenuItem>) -> impl IntoView {
-    let ShellState { rail_open, desktop_settings_open, .. } = expect_context::<ShellState>();
+    let ShellState {
+        rail_open,
+        desktop_settings_open,
+        ..
+    } = expect_context::<ShellState>();
     let disclosure = Disclosed::new("pc-settings", desktop_settings_open);
     let has_settings = !settings.is_empty();
     view! {
@@ -252,7 +256,11 @@ fn SettingsMenu(
 /// The mobile top bar, and the full-screen navigation its lotus opens.
 #[component]
 fn MobileNav(logo: &'static str, nav: Option<NavList>, settings: Vec<MenuItem>) -> impl IntoView {
-    let ShellState { menu_open, mobile_settings_open, .. } = expect_context::<ShellState>();
+    let ShellState {
+        menu_open,
+        mobile_settings_open,
+        ..
+    } = expect_context::<ShellState>();
     let menu = Disclosed::new("pc-menu", menu_open);
     let settings_disclosure = Disclosed::new("pc-settings-menu", mobile_settings_open);
     let has_settings = !settings.is_empty();
@@ -416,7 +424,10 @@ mod tests {
         // mobile button as "outside" and closed what it had just opened.
         let html = render(None);
         assert!(html.contains(r#"aria-controls="pc-settings""#), "{html}");
-        assert!(html.contains(r#"aria-controls="pc-settings-menu""#), "{html}");
+        assert!(
+            html.contains(r#"aria-controls="pc-settings-menu""#),
+            "{html}"
+        );
         assert!(html.contains(r#"id="pc-settings""#), "{html}");
         assert!(html.contains(r#"id="pc-settings-menu""#), "{html}");
     }
@@ -450,6 +461,9 @@ mod tests {
             view! { <AppShell settings=items><p>"page"</p></AppShell> }.to_html()
         });
         assert!(html.contains("Say hello"), "{html}");
-        assert!(!html.contains("Theme"), "not kept unless the app adds it back: {html}");
+        assert!(
+            !html.contains("Theme"),
+            "not kept unless the app adds it back: {html}"
+        );
     }
 }
