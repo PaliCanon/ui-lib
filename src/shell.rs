@@ -14,24 +14,27 @@
 //! defined.
 //!
 //! **Settings** sits at the bottom of the rail (desktop) and of the
-//! full-screen navigation (mobile): a [`Menu`] of `settings`
-//! ([`theme::theme_menu`] alone by default; an app overriding it decides
-//! whether to keep that entry). On desktop it opens as a [`Menu`] (a
-//! [`crate::popover::Popover`] beside the rail, rendered outside the rail's
-//! clipped `<nav>` so it is never cut off); on mobile it expands inline,
-//! below its own row, as a [`DrillMenu`]. Desktop and mobile each own their
-//! disclosure (`ShellState::desktop_settings_open`, `mobile_settings_open`):
-//! they are two different elements with two different ids, so one is never
-//! mistaken for the other's outside click. Escape — which already closes
-//! the rail and the mobile menu — closes both too (each through its own
-//! listener: the [`Menu`]'s own popover for the desktop one; the mobile row
-//! is simply part of the mobile menu it closes).
+//! full-screen navigation (mobile): both the gear (desktop) and the row
+//! (mobile) open the very same [`crate::dialog::Dialog`], titled
+//! "Settings", through one shared disclosure
+//! (`ShellState::settings_open`) — only one of the two triggers is ever
+//! visible at a time (the rail and the mobile navigation already are), so
+//! sharing an id never confuses an outside click the way two overlapping
+//! popovers once could. Its content is `settings`: one
+//! [`crate::dialog::DialogSection`] "Appearance" holding the theme as a
+//! [`crate::button::Segmented`] (Light · Dark · System) by default; an app
+//! overriding `settings` replaces that content (it adds the Appearance
+//! section back itself to keep the theme choice). Escape and the backdrop
+//! click, already wired into `Dialog`, close it like anything else it
+//! closes.
 
 use leptos::prelude::*;
 
-use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Size, Variant};
+use crate::button::{
+    Button, Disclosed, Disclosure, DisclosureButton, Segmented, SegmentedOption, Size, Variant,
+};
+use crate::dialog::{Dialog, DialogSection};
 use crate::icon::{Icon, IconName};
-use crate::menu::{DrillMenu, Menu, MenuItem};
 use crate::nav::{MobileSections, NavList, RailSections};
 use crate::persisted;
 use crate::theme::{self, Theme};
@@ -48,11 +51,9 @@ pub struct ShellState {
     pub rail_open: RwSignal<bool>,
     /// The mobile full-screen navigation is open (never remembered).
     pub menu_open: RwSignal<bool>,
-    /// The desktop Settings popover is open (never remembered). Distinct
-    /// from `mobile_settings_open`: see the module documentation.
-    pub desktop_settings_open: RwSignal<bool>,
-    /// The mobile Settings row is expanded (never remembered).
-    pub mobile_settings_open: RwSignal<bool>,
+    /// The Settings dialog is open (never remembered): shared by the
+    /// desktop gear and the mobile row, see the module documentation.
+    pub settings_open: RwSignal<bool>,
     /// The reading theme (remembered in the `pc_theme` cookie).
     pub theme: RwSignal<Theme>,
 }
@@ -88,27 +89,25 @@ pub fn AppShell(
     /// The app's navigation, below the lotus; none by default.
     #[prop(optional)]
     nav: Option<NavList>,
-    /// Settings, at the bottom of the rail and of the mobile menu:
-    /// [`theme::theme_menu`] alone when not given; an app overriding it
-    /// that still wants the theme choice adds that itself. An empty `Vec`
-    /// hides the Settings entry.
-    #[prop(optional)]
-    settings: Option<Vec<MenuItem>>,
+    /// The Settings dialog's content: one Appearance section with the
+    /// theme as a [`Segmented`] when not given; an app overriding it that
+    /// still wants the theme choice adds that section back itself.
+    #[prop(optional, into)]
+    settings: Option<ViewFn>,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
     let state = ShellState {
         rail_open: persisted("rail", false),
         menu_open: RwSignal::new(false),
-        desktop_settings_open: RwSignal::new(false),
-        mobile_settings_open: RwSignal::new(false),
+        settings_open: RwSignal::new(false),
         theme: theme::theme_signal(),
     };
     provide_context(state);
     close_on_escape(state);
     apply_theme(state.theme);
     let rail_open = state.rail_open;
-    let settings = settings.unwrap_or_else(|| vec![theme::theme_menu()]);
+    let settings = settings.unwrap_or_else(|| default_settings(state.theme));
 
     let rail_width = move || {
         if rail_open.get() {
@@ -118,8 +117,9 @@ pub fn AppShell(
         }
     };
     view! {
-        <DesktopRail logo=logo nav=nav.clone() settings=settings.clone() />
-        <MobileNav logo=logo nav=nav settings=settings />
+        <DesktopRail logo=logo nav=nav.clone() />
+        <MobileNav logo=logo nav=nav />
+        <SettingsDialog settings=settings />
         // The service's page, beside the rail on desktop.
         <div class="transition-[padding] duration-200 sm:pl-(--pc-rail)" style:--pc-rail=rail_width>
             {children()}
@@ -127,18 +127,58 @@ pub fn AppShell(
     }
 }
 
-/// Escape closes the rail, the mobile navigation, and the mobile Settings
-/// row (the desktop one closes itself: its [`Menu`] is a
-/// [`crate::popover::Popover`], which
-/// already listens for Escape). The browser only: there is no window while
-/// the server renders.
+/// The default of `AppShell`'s `settings`: one Appearance section, the
+/// theme as a [`Segmented`] of Light, Dark and System, bound to `theme`.
+fn default_settings(theme: RwSignal<Theme>) -> ViewFn {
+    (move || {
+        let options = vec![
+            SegmentedOption {
+                label: "Light",
+                value: Theme::Light,
+            },
+            SegmentedOption {
+                label: "Dark",
+                value: Theme::Dark,
+            },
+            SegmentedOption {
+                label: "System",
+                value: Theme::System,
+            },
+        ];
+        view! {
+            <DialogSection title="Appearance">
+                <Segmented
+                    aria_label="Theme"
+                    options=options
+                    value=Signal::derive(move || theme.get())
+                    on_change=Callback::new(move |value| theme.set(value))
+                />
+            </DialogSection>
+        }
+        .into_any()
+    })
+    .into()
+}
+
+/// The Settings dialog, opened by both the desktop gear and the mobile row
+/// through the same shared `ShellState::settings_open`.
+#[component]
+fn SettingsDialog(settings: ViewFn) -> impl IntoView {
+    let state = expect_context::<ShellState>();
+    let controls = Disclosed::new("pc-settings", state.settings_open);
+    view! { <Dialog controls=controls title="Settings">{settings.run()}</Dialog> }
+}
+
+/// Escape closes the rail and the mobile navigation (the Settings dialog
+/// closes itself: it is a [`crate::dialog::Dialog`], which already listens
+/// for Escape). The browser only: there is no window while the server
+/// renders.
 fn close_on_escape(state: ShellState) {
     #[cfg(feature = "hydrate")]
     let _ = window_event_listener(leptos::ev::keydown, move |ev| {
         if ev.key() == "Escape" {
             state.menu_open.set(false);
             state.rail_open.set(false);
-            state.mobile_settings_open.set(false);
         }
     });
     #[cfg(not(feature = "hydrate"))]
@@ -170,19 +210,17 @@ const OPEN_LABEL: &str = "Open navigation";
 const CLOSE_LABEL: &str = "Close navigation";
 
 /// The desktop rail: the lotus opens and closes it; the name shows when
-/// open. The Settings popover is a sibling, not a child: the rail clips its
-/// own overflow (`overflow-hidden`, for the width transition), which would
-/// clip the popover too. Nothing of Settings renders when `settings` is
-/// empty.
+/// open. The Settings entry at its bottom opens [`SettingsDialog`], a
+/// sibling of the rail (not nested in it): the dialog is fixed over the
+/// whole page, not clipped by the rail's own `overflow-hidden`.
 #[component]
-fn DesktopRail(logo: &'static str, nav: Option<NavList>, settings: Vec<MenuItem>) -> impl IntoView {
+fn DesktopRail(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
     let ShellState {
         rail_open,
-        desktop_settings_open,
+        settings_open,
         ..
     } = expect_context::<ShellState>();
-    let disclosure = Disclosed::new("pc-settings", desktop_settings_open);
-    let has_settings = !settings.is_empty();
+    let settings = Disclosed::new("pc-settings", settings_open);
     view! {
         <nav
             id="pc-rail"
@@ -205,10 +243,8 @@ fn DesktopRail(logo: &'static str, nav: Option<NavList>, settings: Vec<MenuItem>
             <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
                 {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
             </div>
-            {has_settings.then(|| view! { <RailSettingsEntry settings=disclosure shown=rail_open /> })}
+            <RailSettingsEntry settings=settings shown=rail_open />
         </nav>
-        {has_settings
-            .then(|| view! { <SettingsMenu controls=disclosure items=settings rail_open=rail_open /> })}
     }
 }
 
@@ -229,41 +265,16 @@ fn RailSettingsEntry(settings: Disclosed, #[prop(into)] shown: Signal<bool>) -> 
     }
 }
 
-/// The [`Menu`] Settings opens on desktop: fixed beside the rail, outside
-/// its clipped `<nav>`, its left edge following the rail's width so it
-/// stays flush whether the rail is open or collapsed.
-#[component]
-fn SettingsMenu(
-    controls: Disclosed,
-    items: Vec<MenuItem>,
-    #[prop(into)] rail_open: Signal<bool>,
-) -> impl IntoView {
-    let left = move || {
-        let width = if rail_open.get() {
-            RAIL_OPEN
-        } else {
-            RAIL_CLOSED
-        };
-        format!("calc({width} + 0.5rem)")
-    };
-    view! {
-        <div class="fixed bottom-3.5 z-30 hidden sm:block" style:left=left>
-            <Menu controls=controls aria_label="Settings" items=items />
-        </div>
-    }
-}
-
 /// The mobile top bar, and the full-screen navigation its lotus opens.
 #[component]
-fn MobileNav(logo: &'static str, nav: Option<NavList>, settings: Vec<MenuItem>) -> impl IntoView {
+fn MobileNav(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
     let ShellState {
         menu_open,
-        mobile_settings_open,
+        settings_open,
         ..
     } = expect_context::<ShellState>();
     let menu = Disclosed::new("pc-menu", menu_open);
-    let settings_disclosure = Disclosed::new("pc-settings-menu", mobile_settings_open);
-    let has_settings = !settings.is_empty();
+    let settings = Disclosed::new("pc-settings", settings_open);
     view! {
         <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-page px-2 sm:hidden">
             <DisclosureButton controls=menu variant=Variant::Icon label_closed=OPEN_LABEL label_open=CLOSE_LABEL>
@@ -281,31 +292,26 @@ fn MobileNav(logo: &'static str, nav: Option<NavList>, settings: Vec<MenuItem>) 
         >
             <MobileMenuHeader logo=logo menu=menu />
             // Clicks bubble up from the entries: choosing one closes the menu.
-            // Settings sits outside this container: choosing a theme must
-            // not close the menu the same way.
+            // Settings sits outside this container: opening it must not
+            // close the mobile menu the same way.
             <div class="flex flex-col gap-1 overflow-y-auto p-3" on:click=move |_| menu.set_open(false)>
                 {nav.map(|nav| view! { <MobileSections nav=nav /> })}
             </div>
-            {has_settings
-                .then(|| view! { <MobileSettings settings=settings_disclosure items=settings /> })}
+            <MobileSettings settings=settings />
         </div>
     }
 }
 
-/// The Settings row of the full-screen navigation, pinned to the bottom;
-/// a [`DrillMenu`] of `items` expands inline below it, never closing the
-/// mobile menu.
+/// The Settings row of the full-screen navigation, pinned to the bottom:
+/// opens the very same [`SettingsDialog`] the desktop gear does.
 #[component]
-fn MobileSettings(settings: Disclosed, items: Vec<MenuItem>) -> impl IntoView {
+fn MobileSettings(settings: Disclosed) -> impl IntoView {
     view! {
         <div class="mt-auto border-t border-line p-3">
             <DisclosureButton controls=settings variant=Variant::Nav size=Size::Lg label_closed="Settings" label_open="Settings">
                 <Icon name=IconName::Gear />
                 <span>"Settings"</span>
             </DisclosureButton>
-            <div id="pc-settings-menu" class="mt-1 pl-1" hidden=move || !settings.is_open()>
-                <DrillMenu items=items />
-            </div>
         </div>
     }
 }
@@ -417,52 +423,53 @@ mod tests {
     }
 
     #[test]
-    fn desktop_and_mobile_settings_are_distinct_disclosures() {
-        // The bug this regression-tests: both used to share one signal
-        // under two different ids, so the desktop popover's outside-click
-        // listener (always mounted, only hidden on mobile by CSS) saw the
-        // mobile button as "outside" and closed what it had just opened.
+    fn the_desktop_gear_and_mobile_row_share_one_settings_dialog() {
+        // Both triggers name the same dialog: only one of the two is ever
+        // visible at a time (the rail and the mobile nav already are), so
+        // sharing an id never confuses an outside click the way two
+        // overlapping popovers once could.
         let html = render(None);
-        assert!(html.contains(r#"aria-controls="pc-settings""#), "{html}");
+        assert_eq!(
+            html.matches(r#"aria-controls="pc-settings""#).count(),
+            2,
+            "the gear and the mobile row: {html}"
+        );
+        assert_eq!(
+            html.matches(r#"id="pc-settings""#).count(),
+            1,
+            "a single dialog panel: {html}"
+        );
+        assert!(html.contains(r#"role="dialog""#), "{html}");
         assert!(
-            html.contains(r#"aria-controls="pc-settings-menu""#),
+            html.contains(r#"aria-labelledby="pc-settings-title""#),
             "{html}"
         );
-        assert!(html.contains(r#"id="pc-settings""#), "{html}");
-        assert!(html.contains(r#"id="pc-settings-menu""#), "{html}");
     }
 
     #[test]
-    fn settings_default_to_the_theme_menu() {
+    fn settings_default_to_appearance_with_a_segmented_theme() {
         let html = render(None);
-        assert!(html.contains("Theme"), "{html}");
-        assert!(html.contains("System"), "{html}");
+        assert!(html.contains("Appearance"), "{html}");
+        assert!(html.contains(r#"role="radiogroup""#), "{html}");
+        assert!(html.contains(r#"aria-label="Theme""#), "{html}");
         assert!(html.contains("Light"), "{html}");
         assert!(html.contains("Dark"), "{html}");
+        assert!(html.contains("System"), "{html}");
     }
 
     #[test]
-    fn an_empty_settings_list_hides_the_entry() {
-        let html = Owner::new()
-            .with(|| view! { <AppShell settings=Vec::new()><p>"page"</p></AppShell> }.to_html());
-        assert!(!html.contains("Settings"), "{html}");
-        assert!(!html.contains(r#"id="pc-settings""#), "{html}");
-        assert!(!html.contains(r#"id="pc-settings-menu""#), "{html}");
-    }
-
-    #[test]
-    fn an_app_can_override_settings_with_its_own_items() {
+    fn an_app_can_override_settings_with_its_own_view() {
         let html = Owner::new().with(|| {
-            let items = vec![MenuItem::Action {
-                label: "Say hello",
-                icon: None,
-                on_select: Callback::new(|()| {}),
-            }];
-            view! { <AppShell settings=items><p>"page"</p></AppShell> }.to_html()
+            view! {
+                <AppShell settings=|| view! { <p>"Say hello"</p> }.into_any()>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
         });
         assert!(html.contains("Say hello"), "{html}");
         assert!(
-            !html.contains("Theme"),
+            !html.contains("Appearance"),
             "not kept unless the app adds it back: {html}"
         );
     }

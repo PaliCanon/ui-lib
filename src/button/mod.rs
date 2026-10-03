@@ -8,15 +8,18 @@
 //! | [`ToggleButton`] | on or off | `aria-pressed` |
 //! | [`LinkButton`] | goes to another page | `<a href>`, `aria-current` |
 //! | [`RadioButton`] | one choice of a group | `role="radio"`, `aria-checked` |
+//! | [`Segmented`] | a row of [`RadioButton`]s for one value out of a few | `role="radiogroup"` |
 //!
 //! [`Variant::Nav`] is the look of a navigation list's entries ([`crate::nav`]).
 
 mod disclosure;
+mod segmented;
 mod style;
 
 use leptos::prelude::*;
 
 pub use disclosure::{Disclosed, Disclosure};
+pub use segmented::{Segmented, SegmentedOption};
 pub use style::{Size, Variant, classes};
 
 fn is_disabled(disabled: Option<Signal<bool>>) -> bool {

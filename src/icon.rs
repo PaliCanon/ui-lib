@@ -32,10 +32,44 @@ pub enum IconName {
     Popover,
     /// A 2x2 grid of squares: the gallery's icons page.
     Grid,
+    /// An ✕: closes a [`crate::dialog::Dialog`] or the mobile navigation.
+    Close,
+    /// A window with a header bar: the gallery's dialog page.
+    Dialog,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
 fn paths(name: IconName) -> &'static [&'static str] {
+    match name {
+        IconName::ArrowLeft => &["M19 12H5", "M11 18l-6-6 6-6"],
+        IconName::ChevronRight => &["M9 18l6-6-6-6"],
+        IconName::Check => &["M20 6L9 17l-5-5"],
+        IconName::Menu => &["M3 12h18", "M3 6h18", "M3 18h18"],
+        IconName::Popover => &[
+            // A rounded panel with a small tail, pointing down-left.
+            "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
+        ],
+        IconName::Grid => &[
+            "M3 3h7v7H3z",
+            "M14 3h7v7h-7z",
+            "M14 14h7v7h-7z",
+            "M3 14h7v7H3z",
+        ],
+        IconName::Close => &["M4 4l16 16", "M20 4L4 20"],
+        IconName::Dialog => &[
+            // The window frame.
+            "M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
+            // The header bar's divider.
+            "M2 9h20",
+        ],
+        other => core_paths(other),
+    }
+}
+
+/// [`paths`]'s first icons — the oldest, and the only ones with fiddly
+/// multi-line drawings (`Gear`, `Sun`) — split out so neither function
+/// grows past the line limit.
+fn core_paths(name: IconName) -> &'static [&'static str] {
     match name {
         IconName::Button => &[
             // The button: a pill, open at the bottom right where the pointer sits.
@@ -78,20 +112,7 @@ fn paths(name: IconName) -> &'static [&'static str] {
             "M8 21h8",
             "M12 17v4",
         ],
-        IconName::ArrowLeft => &["M19 12H5", "M11 18l-6-6 6-6"],
-        IconName::ChevronRight => &["M9 18l6-6-6-6"],
-        IconName::Check => &["M20 6L9 17l-5-5"],
-        IconName::Menu => &["M3 12h18", "M3 6h18", "M3 18h18"],
-        IconName::Popover => &[
-            // A rounded panel with a small tail, pointing down-left.
-            "M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z",
-        ],
-        IconName::Grid => &[
-            "M3 3h7v7H3z",
-            "M14 3h7v7h-7z",
-            "M14 14h7v7h-7z",
-            "M3 14h7v7H3z",
-        ],
+        _ => unreachable!("paths dispatches every other IconName to core_paths"),
     }
 }
 
@@ -150,6 +171,8 @@ mod tests {
             IconName::Menu,
             IconName::Popover,
             IconName::Grid,
+            IconName::Close,
+            IconName::Dialog,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }
