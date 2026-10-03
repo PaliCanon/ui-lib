@@ -11,10 +11,10 @@
 //!   (`pointerenter`), a click, or `ArrowRight`; `ArrowLeft` or Escape closes
 //!   the deepest open one, an outside click (or choosing an action or a
 //!   link) closes the whole menu. On mobile, choosing it drills down. Its
-//!   panel opens to the entry's right, sized to its widest row
-//!   ([`MenuLevel`]'s `w-max min-w-56`) and aligned with the entry; once
-//!   visible, [`position_submenu`] clamps it to the viewport (shifted up,
-//!   or to the entry's left) if it would otherwise run off-screen.
+//!   panel opens to the entry's right, sized to its widest row, top-aligned
+//!   with the entry; once visible, it is bottom-aligned and grows up when it
+//!   would run past the viewport's bottom, and opens to the left when there
+//!   is no room on the right.
 //!
 //! Settings ([`crate::shell::AppShell`]'s `settings` prop) is a `Menu`: an
 //! app can pass its own items, any depth of submenus, alongside or instead

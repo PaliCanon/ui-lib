@@ -1,4 +1,4 @@
-//! A floating panel tied to a [`Disclosure`](crate::button::Disclosure):
+//! A floating panel tied to a [`Disclosure`]:
 //! shown while it is open, hidden otherwise. Once hydrated, it also closes
 //! itself on Escape and on a click outside both the panel and its trigger
 //! (the element whose `aria-controls` names it) — generic enough for a

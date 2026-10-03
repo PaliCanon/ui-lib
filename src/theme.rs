@@ -1,7 +1,7 @@
 //! The reading theme: Light (the former sepia palette), Dark, or System
 //! (the default: it follows the device's own `prefers-color-scheme`).
 //!
-//! The choice is [`persisted`](crate::persisted) under `pc_theme`, held by
+//! The choice is [`persisted`](fn@crate::persisted) under `pc_theme`, held by
 //! [`theme_signal`] — created once per render and reused after that (through
 //! Leptos context), so [`crate::shell::AppShell`]'s own state and a
 //! [`theme_menu`] an app builds *before* `AppShell` runs (to compose its own
@@ -91,7 +91,7 @@ pub fn theme_attribute() -> Option<&'static str> {
         .and_then(Theme::attribute)
 }
 
-/// The reading theme: [`persisted`](crate::persisted) under `pc_theme` the
+/// The reading theme: [`persisted`](fn@crate::persisted) under `pc_theme` the
 /// first time anything in this render asks for it, then reused (through
 /// Leptos context) by every later call in the same owner tree — in
 /// particular, an app that calls [`theme_menu`] to compose its own
