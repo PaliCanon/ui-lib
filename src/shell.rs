@@ -27,11 +27,17 @@
 //! Appearance section back itself to keep the theme choice). Escape and the
 //! backdrop click, already wired into `Dialog`, close it like anything else
 //! it closes.
+//!
+//! **`env_badge`** ([`crate::env_badge::EnvBadgeInfo`], none by default)
+//! shows which build is running: below Settings at the rail bottom
+//! (desktop), and on the right of the top bar (mobile) — the very same
+//! value, rendered twice.
 
 use leptos::prelude::*;
 
 use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Size, Variant};
 use crate::dialog::{Dialog, DialogSection};
+use crate::env_badge::{EnvBadge, EnvBadgeInfo};
 use crate::icon::{Icon, IconName};
 use crate::nav::{MobileSections, NavList, RailSections};
 use crate::persisted;
@@ -92,6 +98,10 @@ pub fn AppShell(
     /// still wants the theme choice adds that section back itself.
     #[prop(optional, into)]
     settings: Option<ViewFn>,
+    /// Which build is running, shown at the rail bottom (desktop) and in
+    /// the top bar (mobile); none by default.
+    #[prop(optional)]
+    env_badge: Option<EnvBadgeInfo>,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
@@ -115,8 +125,8 @@ pub fn AppShell(
         }
     };
     view! {
-        <DesktopRail logo=logo nav=nav.clone() />
-        <MobileNav logo=logo nav=nav />
+        <DesktopRail logo=logo nav=nav.clone() env_badge=env_badge />
+        <MobileNav logo=logo nav=nav env_badge=env_badge />
         <SettingsDialog settings=settings />
         // The service's page, beside the rail on desktop.
         <div class="transition-[padding] duration-200 sm:pl-(--pc-rail)" style:--pc-rail=rail_width>
@@ -195,7 +205,11 @@ const CLOSE_LABEL: &str = "Close navigation";
 /// sibling of the rail (not nested in it): the dialog is fixed over the
 /// whole page, not clipped by the rail's own `overflow-hidden`.
 #[component]
-fn DesktopRail(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
+fn DesktopRail(
+    logo: &'static str,
+    nav: Option<NavList>,
+    env_badge: Option<EnvBadgeInfo>,
+) -> impl IntoView {
     let ShellState {
         rail_open,
         settings_open,
@@ -224,16 +238,22 @@ fn DesktopRail(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
             <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
                 {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
             </div>
-            <RailSettingsEntry settings=settings shown=rail_open />
+            <RailSettingsEntry settings=settings shown=rail_open env_badge=env_badge />
         </nav>
     }
 }
 
 /// The Settings entry, pinned to the bottom of the rail by `mt-auto` (the
 /// rail is a flex column): a gear, and the label, fading like the nav
-/// entries above it while the rail is collapsed.
+/// entries above it while the rail is collapsed; the env badge, when
+/// given, sits below it, fading the same way (it would not fit in the
+/// icon-only collapsed width).
 #[component]
-fn RailSettingsEntry(settings: Disclosed, #[prop(into)] shown: Signal<bool>) -> impl IntoView {
+fn RailSettingsEntry(
+    settings: Disclosed,
+    #[prop(into)] shown: Signal<bool>,
+    env_badge: Option<EnvBadgeInfo>,
+) -> impl IntoView {
     view! {
         <div class="mt-auto border-t border-line px-3.5 pt-3.5 pb-3.5">
             <DisclosureButton controls=settings variant=Variant::Nav label_closed="Settings" label_open="Settings">
@@ -242,13 +262,24 @@ fn RailSettingsEntry(settings: Disclosed, #[prop(into)] shown: Signal<bool>) -> 
                     "Settings"
                 </span>
             </DisclosureButton>
+            {env_badge.map(|info| view! {
+                <div class="mt-3 transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                    <EnvBadge env=info.env sha=info.sha />
+                </div>
+            })}
         </div>
     }
 }
 
-/// The mobile top bar, and the full-screen navigation its lotus opens.
+/// The mobile top bar, and the full-screen navigation its lotus opens. The
+/// env badge, when given, sits on the right, truncating its env (the
+/// branch) rather than pushing the lotus and name off screen.
 #[component]
-fn MobileNav(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
+fn MobileNav(
+    logo: &'static str,
+    nav: Option<NavList>,
+    env_badge: Option<EnvBadgeInfo>,
+) -> impl IntoView {
     let ShellState {
         menu_open,
         settings_open,
@@ -262,6 +293,11 @@ fn MobileNav(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
                 <Lotus logo=logo />
             </DisclosureButton>
             <Wordmark shown=Signal::derive(|| true) />
+            {env_badge.map(|info| view! {
+                <div class="ml-auto max-w-[8rem]">
+                    <EnvBadge env=info.env sha=info.sha />
+                </div>
+            })}
         </header>
         <div
             id="pc-menu"
@@ -444,6 +480,109 @@ mod tests {
         assert!(html.contains(r#"data-theme="dark""#), "{html}");
         assert_eq!(html.matches(r#"tabindex="0""#).count(), 1, "{html}");
         assert_eq!(html.matches(r#"tabindex="-1""#).count(), 2, "{html}");
+    }
+
+    #[test]
+    fn no_env_badge_by_default() {
+        let html = render(None);
+        assert!(!html.contains("inline-flex max-w-full"), "{html}");
+    }
+
+    #[test]
+    fn an_env_badge_shows_at_the_rail_bottom_and_in_the_mobile_top_bar() {
+        use crate::EnvBadgeInfo;
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "a1b2c3f" }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        assert_eq!(
+            html.matches(r#"title="main · a1b2c3f""#).count(),
+            2,
+            "the rail (desktop) and the top bar (mobile): {html}"
+        );
+    }
+
+    #[test]
+    fn a_long_branch_truncates_in_the_mobile_top_bar() {
+        use crate::EnvBadgeInfo;
+        let long = "feat/a-very-long-branch-name-that-would-not-fit";
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell env_badge=EnvBadgeInfo { env: long, sha: "a1b2c3f" }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        let header = &html[html.find("<header").unwrap()..html.find("</header>").unwrap()];
+        assert!(header.contains("max-w-[8rem]"), "{header}");
+        assert!(header.contains(long), "{header}");
+    }
+
+    #[test]
+    fn the_rail_badge_fades_with_the_rail_and_shows_once_open() {
+        use crate::EnvBadgeInfo;
+        let render_with = |rail_cookie: &str, env_badge: Option<EnvBadgeInfo>| {
+            Owner::new().with(|| {
+                let request = http::Request::builder()
+                    .header(http::header::COOKIE, format!("pc_rail={rail_cookie}"))
+                    .body(())
+                    .unwrap();
+                provide_context(request.into_parts().0);
+                match env_badge {
+                    Some(info) => {
+                        view! { <AppShell env_badge=info><p>"page"</p></AppShell> }.to_html()
+                    }
+                    None => view! { <AppShell><p>"page"</p></AppShell> }.to_html(),
+                }
+            })
+        };
+        let info = EnvBadgeInfo {
+            env: "main",
+            sha: "a1b2c3f",
+        };
+
+        // Collapsed: the badge's own wrapper adds exactly one more fading
+        // element next to whatever already fades (Wordmark, Settings' label).
+        let closed_without = render_with("false", None);
+        let closed_with = render_with("false", Some(info));
+        assert_eq!(
+            closed_with.matches("opacity-0").count(),
+            closed_without.matches("opacity-0").count() + 1,
+            "{closed_with}"
+        );
+
+        // Open: nothing fades, badge included — its wrapper's `opacity-0`
+        // token is conditional, and the condition is now false.
+        let open_without = render_with("true", None);
+        let open_with = render_with("true", Some(info));
+        assert_eq!(
+            open_with.matches("opacity-0").count(),
+            open_without.matches("opacity-0").count(),
+            "{open_with}"
+        );
+    }
+
+    #[test]
+    fn a_services_own_env_name_shows_as_is() {
+        use crate::EnvBadgeInfo;
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell env_badge=EnvBadgeInfo { env: "dev", sha: "a1b2c3f" }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        assert_eq!(
+            html.matches(r#"title="dev · a1b2c3f""#).count(),
+            2,
+            "{html}"
+        );
     }
 
     #[test]

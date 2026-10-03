@@ -8,6 +8,9 @@
 //! - [`button`] — the button family: variants and sizes for the look, one
 //!   small component per behaviour.
 //! - [`icon`] — the icons of the identity, one at a time as they are needed.
+//! - [`env_badge`] — which build is running: a small mono badge, `env ·
+//!   sha7`, never interactive; [`shell::AppShell`]'s `env_badge` prop shows
+//!   it at the rail bottom and in the mobile top bar.
 //! - [`nav`] — the navigation list: an app's sections and entries, rendered
 //!   by the shell in the rail and in the mobile navigation.
 //! - [`popover`] — a floating panel tied to a [`button::Disclosure`],
@@ -30,6 +33,7 @@
 
 pub mod button;
 pub mod dialog;
+pub mod env_badge;
 mod focus_trap;
 pub mod icon;
 pub mod menu;
@@ -45,6 +49,7 @@ pub use button::{
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
 };
 pub use dialog::{Dialog, DialogSection};
+pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use icon::{Icon, IconName};
 pub use menu::{DrillMenu, Menu, MenuItem};
 pub use nav::{NavEntry, NavList, NavSection};
