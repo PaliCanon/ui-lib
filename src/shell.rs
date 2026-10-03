@@ -3,7 +3,7 @@
 //! - **Desktop** (≥ 640 px): a navigation rail on the left. Collapsed, it
 //!   shows the lotus only; the lotus opens it (the name appears) and closes
 //!   it. The page beside it moves with it. Open or closed is remembered
-//!   ([`persisted`], cookie `pc_rail`), across pages and subdomains.
+//!   ([`persisted`](fn@crate::persisted), cookie `pc_rail`), across pages and subdomains.
 //! - **Mobile**: a top bar with the lotus; the lotus opens the navigation
 //!   full screen, the lotus or ✕ closes it. Always closed when a page loads.
 //! - **Escape** closes whichever is open.
@@ -13,6 +13,7 @@
 
 use leptos::prelude::*;
 
+use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Variant};
 use crate::persisted;
 
 /// Rail widths, collapsed and open.
@@ -29,15 +30,21 @@ pub struct ShellState {
     pub menu_open: RwSignal<bool>,
 }
 
-/// The lotus mark and the name, as the button content.
+/// The lotus, the content of the buttons that open and close the navigation.
 #[component]
-fn Mark(logo: &'static str, #[prop(into)] show_name: Signal<bool>) -> impl IntoView {
+fn Lotus(logo: &'static str) -> impl IntoView {
+    view! { <img src=logo alt="" width="28" height="28" class="size-7" /> }
+}
+
+/// The name "PaliCanon", beside the lotus; `shown` fades it in and out (the
+/// desktop rail shows it only when open).
+#[component]
+fn Wordmark(#[prop(into)] shown: Signal<bool>) -> impl IntoView {
     view! {
-        <img src=logo alt="" width="32" height="32" class="size-8 shrink-0" />
         <span
             class="font-serif text-lg font-semibold whitespace-nowrap text-heading transition-opacity duration-150"
-            class:opacity-0=move || !show_name.get()
-            aria-hidden=move || (!show_name.get()).to_string()
+            class:opacity-0=move || !shown.get()
+            aria-hidden="true"
         >
             "PaliCanon"
         </span>
@@ -48,7 +55,10 @@ fn Mark(logo: &'static str, #[prop(into)] show_name: Signal<bool>) -> impl IntoV
 /// (the service serves it; `/lotus.png` by default).
 #[component]
 pub fn AppShell(
-    #[prop(default = "/lotus.png")] logo: &'static str,
+    /// URL of the lotus image, served by the service.
+    #[prop(default = "/lotus.png")]
+    logo: &'static str,
+    /// The service's page.
     children: Children,
 ) -> impl IntoView {
     let state = ShellState {
@@ -90,22 +100,13 @@ fn close_on_escape(state: ShellState) {
     let _ = state;
 }
 
-/// "Close navigation" or "Open navigation", following `open`.
-fn toggle_label(open: RwSignal<bool>) -> impl Fn() -> &'static str + Copy {
-    move || {
-        if open.get() {
-            "Close navigation"
-        } else {
-            "Open navigation"
-        }
-    }
-}
+const OPEN_LABEL: &str = "Open navigation";
+const CLOSE_LABEL: &str = "Close navigation";
 
-/// The desktop rail: the lotus opens and closes it.
+/// The desktop rail: the lotus opens and closes it; the name shows when open.
 #[component]
 fn DesktopRail(logo: &'static str) -> impl IntoView {
     let ShellState { rail_open, .. } = expect_context::<ShellState>();
-    let label = toggle_label(rail_open);
     view! {
         <nav
             id="pc-rail"
@@ -114,17 +115,17 @@ fn DesktopRail(logo: &'static str) -> impl IntoView {
             style:width=move || if rail_open.get() { RAIL_OPEN } else { RAIL_CLOSED }
             data-open=move || rail_open.get().to_string()
         >
-            <button
-                type="button"
-                class="m-3 flex h-12 cursor-pointer items-center gap-3 rounded-xl px-2 text-left transition hover:bg-chip"
-                aria-controls="pc-rail"
-                aria-expanded=move || rail_open.get().to_string()
-                aria-label=label
-                title=label
-                on:click=move |_| rail_open.update(|open| *open = !*open)
-            >
-                <Mark logo=logo show_name=rail_open />
-            </button>
+            <div class="flex items-center gap-3 p-3.5">
+                <DisclosureButton
+                    controls=Disclosed::new("pc-rail", rail_open)
+                    variant=Variant::Icon
+                    label_closed=OPEN_LABEL
+                    label_open=CLOSE_LABEL
+                >
+                    <Lotus logo=logo />
+                </DisclosureButton>
+                <Wordmark shown=rail_open />
+            </div>
         </nav>
     }
 }
@@ -133,18 +134,13 @@ fn DesktopRail(logo: &'static str) -> impl IntoView {
 #[component]
 fn MobileNav(logo: &'static str) -> impl IntoView {
     let ShellState { menu_open, .. } = expect_context::<ShellState>();
+    let menu = Disclosed::new("pc-menu", menu_open);
     view! {
-        <header class="sticky top-0 z-30 flex h-14 items-center border-b border-line bg-page px-3 sm:hidden">
-            <button
-                type="button"
-                class="flex h-11 cursor-pointer items-center gap-3 rounded-xl px-2 transition hover:bg-chip"
-                aria-controls="pc-menu"
-                aria-expanded=move || menu_open.get().to_string()
-                aria-label=toggle_label(menu_open)
-                on:click=move |_| menu_open.update(|open| *open = !*open)
-            >
-                <Mark logo=logo show_name=Signal::derive(|| true) />
-            </button>
+        <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-page px-2 sm:hidden">
+            <DisclosureButton controls=menu variant=Variant::Icon label_closed=OPEN_LABEL label_open=CLOSE_LABEL>
+                <Lotus logo=logo />
+            </DisclosureButton>
+            <Wordmark shown=Signal::derive(|| true) />
         </header>
         <div
             id="pc-menu"
@@ -154,26 +150,26 @@ fn MobileNav(logo: &'static str) -> impl IntoView {
             class="fixed inset-0 z-40 flex flex-col bg-page sm:hidden"
             hidden=move || !menu_open.get()
         >
-            <div class="flex h-14 items-center justify-between border-b border-line px-3">
-                <button
-                    type="button"
-                    class="flex h-11 cursor-pointer items-center gap-3 rounded-xl px-2 transition hover:bg-chip"
-                    aria-label="Close navigation"
-                    on:click=move |_| menu_open.set(false)
-                >
-                    <Mark logo=logo show_name=Signal::derive(|| true) />
-                </button>
-                <button
-                    type="button"
-                    class="grid size-11 cursor-pointer place-items-center rounded-full text-muted transition hover:bg-chip hover:text-heading"
-                    aria-label="Close navigation"
-                    on:click=move |_| menu_open.set(false)
-                >
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                        <path d="m4 4 8 8M12 4l-8 8" />
-                    </svg>
-                </button>
-            </div>
+            <MobileMenuHeader logo=logo menu=menu />
+        </div>
+    }
+}
+
+/// The top of the full-screen navigation: the lotus (closes it), the name,
+/// and a close cross.
+#[component]
+fn MobileMenuHeader(logo: &'static str, menu: Disclosed) -> impl IntoView {
+    view! {
+        <div class="flex h-14 items-center gap-2 border-b border-line px-2">
+            <DisclosureButton controls=menu variant=Variant::Icon label_closed=OPEN_LABEL label_open=CLOSE_LABEL>
+                <Lotus logo=logo />
+            </DisclosureButton>
+            <Wordmark shown=Signal::derive(|| true) />
+            <Button variant=Variant::Icon label=CLOSE_LABEL layout="ml-auto" on_click=move |_| menu.set_open(false)>
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <path d="m4 4 8 8M12 4l-8 8" />
+                </svg>
+            </Button>
         </div>
     }
 }
