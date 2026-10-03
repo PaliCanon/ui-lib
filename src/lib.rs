@@ -1,6 +1,6 @@
 //! PaliCanon's UI incubator: reusable Leptos pieces that one project uses so
 //! far. When a second project needs one, it moves to `PaliCanon/ui` (see
-//! `docs/conventions/shared-ui.md`).
+//! `docs/conventions/ui-lib.md`).
 //!
 //! - [`persisted`](mod@persisted) — a value kept in a cookie shared by every PaliCanon
 //!   subdomain, read on the server for the first render and written by the
