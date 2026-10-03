@@ -17,6 +17,9 @@ pub enum Variant {
     Accent,
     /// A quiet text action: "Try again".
     Ghost,
+    /// An entry of a navigation list: icon then label, full width, marked
+    /// when it leads to the page being shown.
+    Nav,
 }
 
 /// How big a button is. `Md` is the default and the smallest comfortable
@@ -33,30 +36,36 @@ pub enum Size {
 }
 
 /// Shared by all variants: layout, focus ring, disabled.
-const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center justify-center gap-2 \
+const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center gap-2 \
     font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 \
     focus-visible:outline-gold disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40";
 
 fn variant_classes(variant: Variant) -> &'static str {
     match variant {
         Variant::Icon => {
-            "rounded-xl border border-transparent text-muted hover:border-gold/60 hover:bg-chip \
+            "justify-center rounded-xl border border-transparent text-muted hover:border-gold/60 hover:bg-chip \
              hover:text-heading active:bg-chip-hover aria-expanded:bg-gold/15 aria-expanded:text-heading \
              aria-pressed:bg-gold/15 aria-pressed:text-heading"
         }
         Variant::Chip => {
-            "rounded-full border border-line bg-chip text-muted hover:border-gold/60 hover:text-heading \
+            "justify-center rounded-full border border-line bg-chip text-muted hover:border-gold/60 hover:text-heading \
              active:bg-chip-hover aria-expanded:border-gold aria-expanded:bg-gold/10 \
              aria-expanded:text-heading aria-pressed:border-gold aria-pressed:bg-gold/10 aria-pressed:text-heading"
         }
         Variant::Primary => {
-            "rounded-full bg-gold text-on-gold hover:bg-gold-hover active:brightness-95"
+            "justify-center rounded-full bg-gold text-on-gold hover:bg-gold-hover active:brightness-95"
         }
         Variant::Accent => {
-            "rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
+            "justify-center rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
              active:bg-gold/15"
         }
-        Variant::Ghost => "rounded-sm text-gold underline underline-offset-4 hover:text-heading",
+        Variant::Nav => {
+            "w-full justify-start whitespace-nowrap rounded-xl text-muted hover:bg-chip hover:text-heading \
+             active:bg-chip-hover aria-[current=page]:bg-gold/15 aria-[current=page]:text-heading"
+        }
+        Variant::Ghost => {
+            "justify-center rounded-sm text-gold underline underline-offset-4 hover:text-heading"
+        }
     }
 }
 
@@ -68,6 +77,10 @@ fn size_classes(variant: Variant, size: Size) -> &'static str {
         (Variant::Icon, Size::Sm) => "size-8",
         (Variant::Icon, Size::Md) => "size-11",
         (Variant::Icon, Size::Lg) => "size-13",
+        // The icon sits where an `Icon` button's would: centred in the first 44 px.
+        (Variant::Nav, Size::Sm) => "h-8 gap-3 px-[7px] text-[13px]",
+        (Variant::Nav, Size::Md) => "h-11 gap-3 px-[13px] text-sm",
+        (Variant::Nav, Size::Lg) => "h-13 gap-4 px-4 text-base",
         (_, Size::Sm) => "h-8 px-3 text-[13px]",
         (_, Size::Md) => "h-11 px-4 text-sm",
         (_, Size::Lg) => "h-13 px-5 text-[15px]",
@@ -94,12 +107,13 @@ pub fn classes(variant: Variant, size: Size, layout: &str) -> String {
 mod tests {
     use super::*;
 
-    const ALL: [Variant; 5] = [
+    const ALL: [Variant; 6] = [
         Variant::Icon,
         Variant::Chip,
         Variant::Primary,
         Variant::Accent,
         Variant::Ghost,
+        Variant::Nav,
     ];
 
     #[test]
@@ -130,6 +144,19 @@ mod tests {
         assert!(classes(Variant::Chip, Size::Lg, "").contains("h-13 px-5"));
         assert!(classes(Variant::Chip, Size::Md, "m-3 w-full").ends_with(" m-3 w-full"));
         assert!(!classes(Variant::Chip, Size::Md, "").ends_with(' '));
+    }
+
+    #[test]
+    fn nav_entries_start_left_and_mark_the_current_page() {
+        let c = classes(Variant::Nav, Size::Md, "");
+        assert!(
+            c.contains("justify-start") && !c.contains("justify-center"),
+            "{c}"
+        );
+        assert!(c.contains("aria-[current=page]:"), "{c}");
+        for v in [Variant::Icon, Variant::Chip, Variant::Primary] {
+            assert!(classes(v, Size::Md, "").contains("justify-center"), "{v:?}");
+        }
     }
 
     #[test]

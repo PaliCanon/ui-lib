@@ -8,12 +8,15 @@
 //!   full screen, the lotus or ✕ closes it. Always closed when a page loads.
 //! - **Escape** closes whichever is open.
 //!
-//! The rail holds no service yet: each service adds its own entry when it is
-//! created. Strings are English until the i18n mechanism is defined.
+//! Below the lotus, the app's [`NavList`] (none by default): each service
+//! adds its own entry when it is created. Choosing an entry in the mobile
+//! navigation closes it. Strings are English until the i18n mechanism is
+//! defined.
 
 use leptos::prelude::*;
 
 use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Variant};
+use crate::nav::{MobileSections, NavList, RailSections};
 use crate::persisted;
 
 /// Rail widths, collapsed and open.
@@ -58,6 +61,9 @@ pub fn AppShell(
     /// URL of the lotus image, served by the service.
     #[prop(default = "/lotus.png")]
     logo: &'static str,
+    /// The app's navigation, below the lotus; none by default.
+    #[prop(optional)]
+    nav: Option<NavList>,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
@@ -77,8 +83,8 @@ pub fn AppShell(
         }
     };
     view! {
-        <DesktopRail logo=logo />
-        <MobileNav logo=logo />
+        <DesktopRail logo=logo nav=nav.clone() />
+        <MobileNav logo=logo nav=nav />
         // The service's page, beside the rail on desktop.
         <div class="transition-[padding] duration-200 sm:pl-(--pc-rail)" style:--pc-rail=rail_width>
             {children()}
@@ -105,7 +111,7 @@ const CLOSE_LABEL: &str = "Close navigation";
 
 /// The desktop rail: the lotus opens and closes it; the name shows when open.
 #[component]
-fn DesktopRail(logo: &'static str) -> impl IntoView {
+fn DesktopRail(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
     let ShellState { rail_open, .. } = expect_context::<ShellState>();
     view! {
         <nav
@@ -126,13 +132,16 @@ fn DesktopRail(logo: &'static str) -> impl IntoView {
                 </DisclosureButton>
                 <Wordmark shown=rail_open />
             </div>
+            <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
+                {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
+            </div>
         </nav>
     }
 }
 
 /// The mobile top bar, and the full-screen navigation its lotus opens.
 #[component]
-fn MobileNav(logo: &'static str) -> impl IntoView {
+fn MobileNav(logo: &'static str, nav: Option<NavList>) -> impl IntoView {
     let ShellState { menu_open, .. } = expect_context::<ShellState>();
     let menu = Disclosed::new("pc-menu", menu_open);
     view! {
@@ -151,6 +160,10 @@ fn MobileNav(logo: &'static str) -> impl IntoView {
             hidden=move || !menu_open.get()
         >
             <MobileMenuHeader logo=logo menu=menu />
+            // Clicks bubble up from the entries: choosing one closes the menu.
+            <div class="flex flex-col gap-1 overflow-y-auto p-3" on:click=move |_| menu.set_open(false)>
+                {nav.map(|nav| view! { <MobileSections nav=nav /> })}
+            </div>
         </div>
     }
 }
@@ -220,6 +233,39 @@ mod tests {
         assert!(html.contains(r#"data-open="true""#), "{html}");
         assert!(html.contains("15rem"), "{html}");
         assert!(html.contains(r#"aria-label="Close navigation""#), "{html}");
+    }
+
+    #[test]
+    fn the_app_navigation_shows_in_the_rail_and_the_mobile_menu() {
+        use crate::{IconName, NavEntry, NavSection};
+        let html = Owner::new().with(|| {
+            let nav = NavList::new(
+                vec![NavSection {
+                    title: Some("Components"),
+                    entries: vec![NavEntry {
+                        label: "Buttons",
+                        icon: IconName::Button,
+                        href: "/buttons",
+                    }],
+                }],
+                "/".to_string(),
+            );
+            view! { <AppShell nav=nav><p>"page"</p></AppShell> }.to_html()
+        });
+        assert_eq!(
+            html.matches(r#"href="/buttons""#).count(),
+            2,
+            "rail and menu: {html}"
+        );
+        assert!(
+            !html.contains("aria-current"),
+            "no entry is current on /: {html}"
+        );
+    }
+
+    #[test]
+    fn without_navigation_only_the_lotus_shows() {
+        assert!(!render(None).contains("<a"));
     }
 
     #[test]

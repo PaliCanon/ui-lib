@@ -7,6 +7,8 @@
 //! | [`DisclosureButton`] | opens and closes a [`Disclosure`] | `aria-expanded`, `aria-controls` |
 //! | [`ToggleButton`] | on or off | `aria-pressed` |
 //! | [`LinkButton`] | goes to another page | `<a href>`, `aria-current` |
+//!
+//! [`Variant::Nav`] is the look of a navigation list's entries ([`crate::nav`]).
 
 mod disclosure;
 mod style;
@@ -159,9 +161,9 @@ pub fn LinkButton(
     /// Its name for screen readers and its tooltip; needed when the content is only an icon.
     #[prop(optional, into)]
     label: Option<String>,
-    /// It leads to the page being shown (`aria-current="page"`).
-    #[prop(optional)]
-    current: bool,
+    /// It leads to the page being shown (`aria-current="page"`), followed live.
+    #[prop(optional, into)]
+    current: Option<Signal<bool>>,
     /// Layout classes added to the variant's (margin, width, position) — never colours.
     #[prop(optional, into)]
     layout: String,
@@ -172,7 +174,7 @@ pub fn LinkButton(
         <a
             href=href
             class=classes(variant, size, &layout)
-            aria-current=current.then_some("page")
+            aria-current=move || current.is_some_and(|c| c.get()).then_some("page")
             aria-label=label.clone()
             title=label
         >
