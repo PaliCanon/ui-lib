@@ -204,7 +204,10 @@ fn arrow_focus(ev: &leptos::ev::KeyboardEvent, key: &str) {
     if key != "ArrowDown" && key != "ArrowUp" {
         return;
     }
-    if let Some(menu) = ev.current_target().and_then(|t| t.dyn_into::<web_sys::Element>().ok()) {
+    if let Some(menu) = ev
+        .current_target()
+        .and_then(|t| t.dyn_into::<web_sys::Element>().ok())
+    {
         move_focus(&menu, key == "ArrowDown");
     }
     ev.prevent_default();
@@ -239,47 +242,90 @@ fn move_focus(menu: &web_sys::Element, forward: bool) {
     }
 }
 
-/// How far a submenu panel must stay clear of the viewport's bottom edge
-/// once [`position_submenu`] clamps it: half a rem at the default 16px root
-/// font size.
+/// How far a submenu panel stays from the viewport's edges: half a rem at
+/// the default 16px root font size.
 #[cfg(feature = "hydrate")]
 const SUBMENU_VIEWPORT_MARGIN_PX: f64 = 8.0;
 
-/// Clamps a submenu panel (`panel`, the `relative`-positioned `div` right
-/// after its [`SubmenuTrigger`]) to the viewport once it is visible. By
-/// default it opens to the entry's right, aligned with it (the `-top-3
-/// left-full` classes in [`desktop_item_content`], undoing the padding the
-/// panel and its own [`MenuLevel`] add so the first row lines up with the
-/// entry). After the browser lays the now-visible panel out, this measures
-/// it and, only if it would overflow: shifts it up so its bottom stays
-/// [`SUBMENU_VIEWPORT_MARGIN_PX`] clear of the viewport's bottom, and flips
-/// it to the entry's left when there is no room on the right. A no-op
-/// during SSR — there is no window there to measure against.
+/// Places a submenu panel (`panel`, absolutely positioned inside its
+/// entry's `relative` wrapper) once it is visible:
+///
+/// 1. Vertically, it starts at its entry's top and grows down (the default
+///    `-top-3`, which cancels the panels' padding so the first row lines up
+///    with the entry).
+/// 2. If its height would run past the viewport's bottom, it is aligned on
+///    its entry's bottom instead and grows up.
+/// 3. If even that would run past the viewport's top, it is pinned just
+///    below the top.
+/// 4. Horizontally, it opens to the entry's right, or to its left when it
+///    would run past the viewport's right edge.
+///
+/// A no-op during SSR: there is no window to measure against.
 #[cfg(feature = "hydrate")]
 fn position_submenu(panel: NodeRef<html::Div>) {
     request_animation_frame(move || {
-        let Some(el) = panel.get_untracked() else { return };
+        let Some(el) = panel.get_untracked() else {
+            return;
+        };
+        let Some(entry) = el.parent_element() else {
+            return;
+        };
         // Fully qualified: `web_sys::HtmlElement::style` would otherwise be
         // shadowed by tachys's own `style` attribute-setter extension trait.
         let style = web_sys::HtmlElement::style(&el);
-        for prop in ["top", "left", "right", "margin-left", "margin-right"] {
+        for prop in [
+            "top",
+            "bottom",
+            "left",
+            "right",
+            "margin-left",
+            "margin-right",
+        ] {
             let _ = style.remove_property(prop);
         }
-        let rect = el.get_bounding_client_rect();
-        let win = window();
-        let height = win.inner_height().ok().and_then(|v| v.as_f64()).unwrap_or(rect.bottom());
-        let width = win.inner_width().ok().and_then(|v| v.as_f64()).unwrap_or(rect.right());
-        let overflow = rect.bottom() - (height - SUBMENU_VIEWPORT_MARGIN_PX);
-        if overflow > 0.0 {
-            let _ = style.set_property("top", &format!("calc(-0.75rem - {overflow}px)"));
-        }
-        if rect.right() > width {
+        let (vw, vh) = viewport_size();
+        let entry_box = entry.get_bounding_client_rect();
+        let panel_box = el.get_bounding_client_rect();
+        place_vertically(&style, &entry_box, panel_box.height(), vh);
+        if entry_box.right() + panel_box.width() + SUBMENU_VIEWPORT_MARGIN_PX > vw {
             let _ = style.set_property("left", "auto");
             let _ = style.set_property("right", "100%");
             let _ = style.set_property("margin-left", "0");
             let _ = style.set_property("margin-right", "0.25rem");
         }
     });
+}
+
+/// Steps 1 to 3 of [`position_submenu`], for a panel `height` pixels tall
+/// next to `entry`, in a viewport `vh` pixels tall.
+#[cfg(feature = "hydrate")]
+fn place_vertically(
+    style: &web_sys::CssStyleDeclaration,
+    entry: &web_sys::DomRect,
+    height: f64,
+    vh: f64,
+) {
+    let margin = SUBMENU_VIEWPORT_MARGIN_PX;
+    if entry.top() + height <= vh - margin {
+        return; // fits below: the default, top-aligned
+    }
+    if entry.bottom() - height >= margin {
+        // Bottom-aligned with the entry, growing up (the same padding offset).
+        let _ = style.set_property("top", "auto");
+        let _ = style.set_property("bottom", "-0.75rem");
+    } else {
+        // Taller than the room above too: pinned just below the viewport's top.
+        let _ = style.set_property("top", &format!("{}px", margin - entry.top()));
+    }
+}
+
+/// The viewport's width and height in CSS pixels.
+#[cfg(feature = "hydrate")]
+fn viewport_size() -> (f64, f64) {
+    let win = window();
+    let px =
+        |v: Result<wasm_bindgen::JsValue, _>| v.ok().and_then(|v| v.as_f64()).unwrap_or(f64::MAX);
+    (px(win.inner_width()), px(win.inner_height()))
 }
 
 #[cfg(not(feature = "hydrate"))]
@@ -383,7 +429,11 @@ fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoView {
             </a>
         }
         .into_any(),
-        MenuItem::Action { label, icon, on_select } => view! {
+        MenuItem::Action {
+            label,
+            icon,
+            on_select,
+        } => view! {
             <button
                 type="button"
                 role="menuitem"
@@ -397,7 +447,12 @@ fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoView {
             </button>
         }
         .into_any(),
-        MenuItem::Choice { label, icon, selected, on_select } => view! {
+        MenuItem::Choice {
+            label,
+            icon,
+            selected,
+            on_select,
+        } => view! {
             <button
                 type="button"
                 role="menuitemradio"
@@ -409,7 +464,9 @@ fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoView {
             </button>
         }
         .into_any(),
-        MenuItem::Custom(render) => view! { <div class="px-2 py-1.5">{render.run()}</div> }.into_any(),
+        MenuItem::Custom(render) => {
+            view! { <div class="px-2 py-1.5">{render.run()}</div> }.into_any()
+        }
         MenuItem::Submenu { .. } => {
             unreachable!("a Submenu is rendered by its caller, never through leaf_item")
         }
@@ -509,7 +566,11 @@ mod tests {
                     })
                     .collect(),
             },
-            MenuItem::Action { label: "Say hello", icon: None, on_select: Callback::new(|()| {}) },
+            MenuItem::Action {
+                label: "Say hello",
+                icon: None,
+                on_select: Callback::new(|()| {}),
+            },
         ]
     }
 
@@ -518,8 +579,16 @@ mod tests {
         let items = theme_items();
         assert_eq!(items_at(&items, &[]).len(), 2);
         assert_eq!(items_at(&items, &[0]).len(), 3);
-        assert_eq!(items_at(&items, &[0, 9]).len(), 3, "an out-of-range index stays at its level");
-        assert_eq!(items_at(&items, &[1]).len(), 2, "an Action is not a Submenu: no deeper level");
+        assert_eq!(
+            items_at(&items, &[0, 9]).len(),
+            3,
+            "an out-of-range index stays at its level"
+        );
+        assert_eq!(
+            items_at(&items, &[1]).len(),
+            2,
+            "an Action is not a Submenu: no deeper level"
+        );
     }
 
     #[test]
@@ -572,11 +641,13 @@ mod tests {
 
     #[test]
     fn the_drill_menu_starts_at_the_top_with_back_hidden() {
-        let html =
-            Owner::new().with(|| view! { <DrillMenu items=theme_items() /> }.to_html());
+        let html = Owner::new().with(|| view! { <DrillMenu items=theme_items() /> }.to_html());
         assert!(html.contains("Theme"), "{html}");
         assert!(html.contains("Say hello"), "{html}");
         let back = &html[..html.find("Back").unwrap()];
-        assert!(back[back.rfind("<button").unwrap()..].contains("hidden"), "{html}");
+        assert!(
+            back[back.rfind("<button").unwrap()..].contains("hidden"),
+            "{html}"
+        );
     }
 }
