@@ -1,0 +1,21 @@
+[package]
+name = "palicanon-ui-lab"
+description = "PaliCanon's UI incubator: reusable Leptos pieces one project uses so far (promoted to PaliCanon/ui when a second one does)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+leptos.workspace = true
+# Server side: the request's Cookie header (leptos_axum puts the request parts in context).
+http = { version = "1", optional = true }
+# Browser side: document.cookie.
+wasm-bindgen = { version = "0.2", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location"] }
+
+[features]
+ssr = ["leptos/ssr", "dep:http"]
+hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:web-sys"]
+
+[lints]
+workspace = true
