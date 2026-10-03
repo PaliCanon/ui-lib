@@ -1,4 +1,4 @@
-//! The reading theme: Light (the former sepia palette), Dark, or System
+//! The reading theme: Light (linen page, parchment rail, white cards, bronze accent), Dark, or System
 //! (the default: it follows the device's own `prefers-color-scheme`).
 //!
 //! The choice is [`persisted`](fn@crate::persisted) under `pc_theme`, held by
@@ -35,7 +35,7 @@ pub enum Theme {
     /// attribute.
     #[default]
     System,
-    /// The former sepia palette: `data-theme="light"`.
+    /// The light palette (linen, parchment rail, bronze): `data-theme="light"`.
     Light,
     /// `data-theme="dark"`.
     Dark,

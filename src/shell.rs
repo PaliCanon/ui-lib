@@ -324,7 +324,7 @@ fn DesktopRail(
         <nav
             id="pc-rail"
             aria-label="PaliCanon"
-            class="fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-line bg-page transition-[width] duration-200 sm:flex"
+            class="fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-line bg-rail transition-[width] duration-200 sm:flex"
             style:width=move || rail_width(rail_open.get())
             data-open=move || rail_open.get().to_string()
         >
@@ -405,7 +405,7 @@ fn MobileNav(
     let menu_open = state.menu_open;
     let menu = mobile_navigation(state);
     view! {
-        <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-page px-2 sm:hidden">
+        <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-rail px-2 sm:hidden">
             <LotusToggle controls=menu logo=logo />
             <Wordmark shown=Signal::derive(|| true) />
             {env_badge.map(|info| view! {
@@ -419,7 +419,7 @@ fn MobileNav(
             role="dialog"
             aria-modal="true"
             aria-label="PaliCanon"
-            class="fixed inset-0 z-40 flex flex-col bg-page sm:hidden"
+            class="fixed inset-0 z-40 flex flex-col bg-rail sm:hidden"
             hidden=move || !menu_open.get()
         >
             <MobileMenuHeader logo=logo menu=menu />

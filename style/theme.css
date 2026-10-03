@@ -22,6 +22,10 @@
 [data-theme="dark"] {
   /* The iOS app's dark theme: cool slate, parchment text, dharma gold. */
   --ps-page: #20262e;
+  --ps-rail: #20262e;
+  --ps-primary: var(--ps-gold);
+  --ps-primary-hover: var(--ps-gold-hover);
+  --ps-on-primary: var(--ps-on-gold);
   --ps-card: #2c333d;
   --ps-card-edge: #3c4651;
   --ps-chip: #262d36;
@@ -46,28 +50,32 @@
 }
 :root[data-theme="light"],
 [data-theme="light"] {
-  /* The iOS app's light theme (formerly "sepia"): warm parchment. */
-  --ps-page: #f7eac6;
-  --ps-card: #efdeb4;
-  --ps-card-edge: #d8c28f;
-  --ps-chip: #ecdaa9;
-  --ps-chip-hover: #e3cd93;
-  --ps-line: #decb9e;
-  --ps-field: #fbf1d6;
-  --ps-heading: #2c1810;
-  --ps-ink: #3d2a1e;
-  --ps-muted: #5c4a3d;
-  --ps-subtle: #6d5a35;
-  --ps-gold: #84590a;
-  --ps-gold-hover: #6e4a08;
-  --ps-on-gold: #fbf1d6;
-  --ps-mark: rgb(232 163 23 / 0.25);
+  /* Light: bright linen page, parchment rail, white cards, mineral-black headings, dark sepia text, burnt-bronze accent (user palette v5, 2026-10-04). */
+  --ps-page: #f8f6f0;
+  --ps-rail: #eee9de;
+  --ps-primary: #efe4cf;
+  --ps-primary-hover: #e6d6b8;
+  --ps-on-primary: #61420b;
+  --ps-card: #ffffff;
+  --ps-card-edge: #e3dccd;
+  --ps-chip: #f3efe6;
+  --ps-chip-hover: #ece7dc;
+  --ps-line: #e3dccd;
+  --ps-field: #ffffff;
+  --ps-heading: #1d1c1a;
+  --ps-ink: #4a463f;
+  --ps-muted: #4a463f;
+  --ps-subtle: #6b665d;
+  --ps-gold: #785313;
+  --ps-gold-hover: #61420b;
+  --ps-on-gold: #ffffff;
+  --ps-mark: rgb(212 175 55 / 0.25);
   --ps-danger: #a83535;
-  --ps-glass: rgb(239 222 180 / 0.8);
-  --ps-glow: rgb(184 125 15 / 0.2);
-  --ps-halo: rgb(184 125 15 / 0.12);
-  --ps-card-from: #fbf1d6;
-  --ps-card-to: #efdeb4;
+  --ps-glass: rgb(255 255 255 / 0.8);
+  --ps-glow: rgb(212 175 55 / 0.2);
+  --ps-halo: rgb(212 175 55 / 0.12);
+  --ps-card-from: #ffffff;
+  --ps-card-to: #f8f6f0;
   color-scheme: light;
 }
 
@@ -75,33 +83,41 @@
    only the light preference needs to override it. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --ps-page: #f7eac6;
-    --ps-card: #efdeb4;
-    --ps-card-edge: #d8c28f;
-    --ps-chip: #ecdaa9;
-    --ps-chip-hover: #e3cd93;
-    --ps-line: #decb9e;
-    --ps-field: #fbf1d6;
-    --ps-heading: #2c1810;
-    --ps-ink: #3d2a1e;
-    --ps-muted: #5c4a3d;
-    --ps-subtle: #6d5a35;
-    --ps-gold: #84590a;
-    --ps-gold-hover: #6e4a08;
-    --ps-on-gold: #fbf1d6;
-    --ps-mark: rgb(232 163 23 / 0.25);
+    --ps-page: #f8f6f0;
+  --ps-rail: #eee9de;
+  --ps-primary: #efe4cf;
+  --ps-primary-hover: #e6d6b8;
+  --ps-on-primary: #61420b;
+    --ps-card: #ffffff;
+    --ps-card-edge: #e3dccd;
+    --ps-chip: #f3efe6;
+    --ps-chip-hover: #ece7dc;
+    --ps-line: #e3dccd;
+    --ps-field: #ffffff;
+    --ps-heading: #1d1c1a;
+    --ps-ink: #4a463f;
+    --ps-muted: #4a463f;
+    --ps-subtle: #6b665d;
+    --ps-gold: #785313;
+    --ps-gold-hover: #61420b;
+    --ps-on-gold: #ffffff;
+    --ps-mark: rgb(212 175 55 / 0.25);
     --ps-danger: #a83535;
-    --ps-glass: rgb(239 222 180 / 0.8);
-    --ps-glow: rgb(184 125 15 / 0.2);
-    --ps-halo: rgb(184 125 15 / 0.12);
-    --ps-card-from: #fbf1d6;
-    --ps-card-to: #efdeb4;
+    --ps-glass: rgb(255 255 255 / 0.8);
+    --ps-glow: rgb(212 175 55 / 0.2);
+    --ps-halo: rgb(212 175 55 / 0.12);
+    --ps-card-from: #ffffff;
+    --ps-card-to: #f8f6f0;
     color-scheme: light;
   }
 }
 
 @theme inline {
   --color-page: var(--ps-page);
+  --color-rail: var(--ps-rail);
+  --color-primary: var(--ps-primary);
+  --color-primary-hover: var(--ps-primary-hover);
+  --color-on-primary: var(--ps-on-primary);
   --color-card: var(--ps-card);
   --color-card-edge: var(--ps-card-edge);
   --color-chip: var(--ps-chip);

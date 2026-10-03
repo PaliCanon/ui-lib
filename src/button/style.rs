@@ -53,7 +53,7 @@ fn variant_classes(variant: Variant) -> &'static str {
              aria-expanded:text-heading aria-pressed:border-gold aria-pressed:bg-gold/10 aria-pressed:text-heading"
         }
         Variant::Primary => {
-            "justify-center rounded-full bg-gold text-on-gold hover:bg-gold-hover active:brightness-95"
+            "justify-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:brightness-95"
         }
         Variant::Accent => {
             "justify-center rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
@@ -61,7 +61,7 @@ fn variant_classes(variant: Variant) -> &'static str {
         }
         Variant::Nav => {
             "w-full justify-start whitespace-nowrap rounded-xl text-muted hover:bg-chip hover:text-heading \
-             active:bg-chip-hover aria-[current=page]:bg-gold/15 aria-[current=page]:text-heading \
+             active:bg-chip-hover aria-[current=page]:bg-gold/10 aria-[current=page]:text-heading \
              aria-checked:bg-gold/15 aria-checked:text-heading aria-expanded:bg-gold/15 aria-expanded:text-heading"
         }
         Variant::Ghost => {
@@ -116,6 +116,39 @@ mod tests {
         Variant::Ghost,
         Variant::Nav,
     ];
+
+    #[test]
+    fn primary_fills_from_its_own_tokens_not_the_gold_accent() {
+        let c = classes(Variant::Primary, Size::Md, "");
+        assert!(
+            c.contains("bg-primary text-on-primary hover:bg-primary-hover"),
+            "{c}"
+        );
+        assert!(!c.contains("bg-gold "), "{c}");
+    }
+
+    #[test]
+    fn every_theme_block_defines_the_rail_and_primary_tokens() {
+        let css = include_str!("../../style/theme.css");
+        for token in [
+            "--ps-rail:",
+            "--ps-primary:",
+            "--ps-primary-hover:",
+            "--ps-on-primary:",
+        ] {
+            // dark :root, explicit light, system light
+            assert_eq!(css.matches(token).count(), 3, "{token}");
+        }
+        // and Tailwind knows them: without the @theme mapping, bg-primary emits nothing
+        for mapping in [
+            "--color-rail: var(--ps-rail);",
+            "--color-primary: var(--ps-primary);",
+            "--color-primary-hover: var(--ps-primary-hover);",
+            "--color-on-primary: var(--ps-on-primary);",
+        ] {
+            assert!(css.contains(mapping), "{mapping}");
+        }
+    }
 
     #[test]
     fn every_variant_has_focus_and_disabled_states() {
