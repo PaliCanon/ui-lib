@@ -9,15 +9,22 @@
 //! | [`LinkButton`] | goes to another page | `<a href>`, `aria-current` |
 //! | [`RadioButton`] | one choice of a group | `role="radio"`, `aria-checked` |
 //! | [`Segmented`] | a row of [`RadioButton`]s for one value out of a few | `role="radiogroup"` |
+//! | [`ChoiceCards`] | a row of picture cards for one value out of a few | `role="radiogroup"` |
 //!
 //! [`Variant::Nav`] is the look of a navigation list's entries ([`crate::nav`]).
 
+mod choice_cards;
 mod disclosure;
 mod segmented;
 mod style;
 
 use leptos::prelude::*;
 
+/// Test helpers that read a rendered [`ChoiceCards`], shared with the
+/// tests of the components built on it.
+#[cfg(all(test, feature = "ssr"))]
+pub(crate) use choice_cards::tests as choice_cards_test;
+pub use choice_cards::{ChoiceCardOption, ChoiceCards};
 pub use disclosure::{Disclosed, Disclosure};
 pub use segmented::{Segmented, SegmentedOption};
 pub use style::{Size, Variant, classes};

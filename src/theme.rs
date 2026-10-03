@@ -19,6 +19,7 @@ use std::str::FromStr;
 
 use leptos::prelude::*;
 
+use crate::button::{ChoiceCardOption, ChoiceCards};
 use crate::icon::IconName;
 use crate::menu::MenuItem;
 use crate::persisted;
@@ -137,9 +138,93 @@ pub fn theme_menu() -> MenuItem {
     }
 }
 
+/// Settings' theme picker: a [`ChoiceCards`] of picture cards, the classic
+/// Light/Dark/System thumbnails (as in macOS or Gemini) — each one a
+/// miniature page (`PagePreview`: a title bar, a few text lines) drawn in
+/// CSS from that theme's own tokens: Light in the light palette, Dark in
+/// the dark palette, System split diagonally, half light half dark. Bound
+/// to [`theme_signal`]; choosing one applies at once. The default of
+/// [`crate::shell::AppShell`]'s `settings`, in place of the former
+/// [`crate::button::Segmented`].
+#[component]
+pub fn ThemePicker() -> impl IntoView {
+    let (value, on_change) = theme_binding();
+    let options = vec![
+        theme_card(Theme::Light, "Light"),
+        theme_card(Theme::Dark, "Dark"),
+        theme_card(Theme::System, "System"),
+    ];
+    view! { <ChoiceCards aria_label="Theme" options=options value=value on_change=on_change /> }
+}
+
+/// [`ThemePicker`]'s link to [`theme_signal`]: the value its cards show, and
+/// the callback that writes the chosen one back (applied at once by
+/// [`crate::shell::AppShell`]'s own `Effect`).
+fn theme_binding() -> (Signal<Theme>, Callback<Theme>) {
+    let theme = theme_signal();
+    (
+        Signal::derive(move || theme.get()),
+        Callback::new(move |value| theme.set(value)),
+    )
+}
+
+/// One option of [`ThemePicker`]: `theme`'s own value, `label`, and its
+/// [`PagePreview`] picture.
+fn theme_card(theme: Theme, label: &'static str) -> ChoiceCardOption<Theme> {
+    ChoiceCardOption {
+        picture: theme_preview(theme),
+        label,
+        value: theme,
+    }
+}
+
+/// The picture slot of a [`ThemePicker`] card: [`Theme::Light`] and
+/// [`Theme::Dark`] are one [`PagePreview`] each, in their own palette;
+/// [`Theme::System`] overlays a light and a dark one, each clipped to a
+/// diagonal half, so the card reads as half light, half dark.
+fn theme_preview(theme: Theme) -> ViewFn {
+    match theme {
+        Theme::Light => (move || view! { <PagePreview theme="light" /> }.into_any()).into(),
+        Theme::Dark => (move || view! { <PagePreview theme="dark" /> }.into_any()).into(),
+        Theme::System => (move || {
+            view! {
+                <PagePreview theme="light" clip="polygon(0 0, 100% 0, 0 100%)" />
+                <PagePreview theme="dark" clip="polygon(100% 0, 100% 100%, 0 100%)" />
+            }
+            .into_any()
+        })
+        .into(),
+    }
+}
+
+/// One miniature page: a title bar and a few text lines, in `theme`'s own
+/// tokens (`"light"` or `"dark"`) forced on this element through
+/// `data-theme`, regardless of the real page's own theme — the same
+/// subtree override the gallery's Theme page uses to show Light and Dark
+/// side by side (`lab/style/theme.css`'s `[data-theme="…"]` rules, which
+/// match any element, not only `:root`). `clip`, given, clips it to one
+/// diagonal half: [`theme_preview`]'s System card overlays a light and a
+/// dark one this way. Spans throughout, displayed as blocks: it sits inside
+/// a card's `<button>`, which holds phrasing content only.
+#[component]
+fn PagePreview(theme: &'static str, #[prop(optional)] clip: Option<&'static str>) -> impl IntoView {
+    let style = clip.map(|clip| format!("clip-path: {clip};"));
+    view! {
+        <span data-theme=theme class="absolute inset-0 flex flex-col bg-page" style=style>
+            <span class="block h-2/5 w-full border-b border-line bg-card"></span>
+            <span class="flex flex-1 flex-col justify-center gap-1 px-1.5">
+                <span class="block h-[2px] w-3/4 rounded-full bg-ink"></span>
+                <span class="block h-[2px] w-1/2 rounded-full bg-muted"></span>
+                <span class="block h-[2px] w-2/3 rounded-full bg-muted"></span>
+            </span>
+        </span>
+    }
+}
+
 #[cfg(all(test, feature = "ssr"))]
 mod tests {
     use super::*;
+    use crate::button::choice_cards_test::card;
 
     #[test]
     fn displays_and_parses_every_theme() {
@@ -251,6 +336,88 @@ mod tests {
                 Theme::Light,
                 "the second call reused it"
             );
+        });
+    }
+
+    #[test]
+    fn the_theme_picker_is_a_radiogroup_of_light_dark_system_cards() {
+        let html = Owner::new().with(|| {
+            theme_signal().set(Theme::Dark);
+            view! { <ThemePicker /> }.to_html()
+        });
+        assert!(html.contains(r#"role="radiogroup""#), "{html}");
+        assert!(html.contains(r#"aria-label="Theme""#), "{html}");
+        assert_eq!(html.matches(r#"role="radio""#).count(), 3, "{html}");
+        assert!(html.contains("Light"), "{html}");
+        assert!(html.contains("Dark"), "{html}");
+        assert!(html.contains("System"), "{html}");
+        assert_eq!(html.matches(r#"aria-checked="true""#).count(), 1, "{html}");
+    }
+
+    #[test]
+    fn light_and_dark_cards_force_their_own_palette_and_system_overlays_both() {
+        let html = Owner::new().with(|| view! { <ThemePicker /> }.to_html());
+        // One plain preview each for Light and Dark, plus System's own
+        // light-clipped and dark-clipped overlay: two of each in all.
+        assert_eq!(html.matches(r#"data-theme="light""#).count(), 2, "{html}");
+        assert_eq!(html.matches(r#"data-theme="dark""#).count(), 2, "{html}");
+        assert_eq!(html.matches("clip-path:").count(), 2, "{html}");
+    }
+
+    #[test]
+    fn previews_are_phrasing_content_and_only_clipped_ones_carry_a_style() {
+        let html = Owner::new().with(|| view! { <ThemePicker /> }.to_html());
+        for label in ["Light", "Dark", "System"] {
+            let card = card(&html, &format!(">{label}</span>"));
+            assert!(
+                !card.contains("<div"),
+                "a button holds phrasing content: {card}"
+            );
+        }
+        for label in ["Light", "Dark"] {
+            let card = card(&html, &format!(">{label}</span>"));
+            assert!(!card.contains("style="), "{label} is not clipped: {card}");
+        }
+        let system = card(&html, ">System</span>");
+        assert_eq!(
+            system.matches(r#"style="clip-path:"#).count(),
+            2,
+            "{system}"
+        );
+    }
+
+    #[test]
+    fn the_picker_checks_the_card_of_the_current_theme() {
+        for (theme, label) in [
+            (Theme::Light, "Light"),
+            (Theme::Dark, "Dark"),
+            (Theme::System, "System"),
+        ] {
+            let html = Owner::new().with(|| {
+                theme_signal().set(theme);
+                view! { <ThemePicker /> }.to_html()
+            });
+            for other in ["Light", "Dark", "System"] {
+                let card = card(&html, &format!(">{other}</span>"));
+                let opening = &card[..card.find('>').unwrap()];
+                let expected = format!(r#"aria-checked="{}""#, other == label);
+                assert!(
+                    opening.contains(&expected),
+                    "{theme}: {other} {expected}: {html}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn choosing_a_card_writes_the_theme_signal() {
+        Owner::new().with(|| {
+            let (value, choose) = theme_binding();
+            for theme in [Theme::Dark, Theme::Light, Theme::System] {
+                choose.run(theme);
+                assert_eq!(theme_signal().get(), theme, "written to theme_signal");
+                assert_eq!(value.get(), theme, "and read back by the picker");
+            }
         });
     }
 }

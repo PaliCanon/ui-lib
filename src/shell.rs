@@ -22,22 +22,20 @@
 //! sharing an id never confuses an outside click the way two overlapping
 //! popovers once could. Its content is `settings`: one
 //! [`crate::dialog::DialogSection`] "Appearance" holding the theme as a
-//! [`crate::button::Segmented`] (Light · Dark · System) by default; an app
-//! overriding `settings` replaces that content (it adds the Appearance
-//! section back itself to keep the theme choice). Escape and the backdrop
-//! click, already wired into `Dialog`, close it like anything else it
-//! closes.
+//! [`crate::theme::ThemePicker`] (picture cards: Light · Dark · System) by
+//! default; an app overriding `settings` replaces that content (it adds the
+//! Appearance section back itself to keep the theme choice). Escape and the
+//! backdrop click, already wired into `Dialog`, close it like anything else
+//! it closes.
 
 use leptos::prelude::*;
 
-use crate::button::{
-    Button, Disclosed, Disclosure, DisclosureButton, Segmented, SegmentedOption, Size, Variant,
-};
+use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Size, Variant};
 use crate::dialog::{Dialog, DialogSection};
 use crate::icon::{Icon, IconName};
 use crate::nav::{MobileSections, NavList, RailSections};
 use crate::persisted;
-use crate::theme::{self, Theme};
+use crate::theme::{self, Theme, ThemePicker};
 
 /// Rail widths, collapsed and open.
 const RAIL_CLOSED: &str = "4.5rem";
@@ -90,7 +88,7 @@ pub fn AppShell(
     #[prop(optional)]
     nav: Option<NavList>,
     /// The Settings dialog's content: one Appearance section with the
-    /// theme as a [`Segmented`] when not given; an app overriding it that
+    /// theme as a [`ThemePicker`] when not given; an app overriding it that
     /// still wants the theme choice adds that section back itself.
     #[prop(optional, into)]
     settings: Option<ViewFn>,
@@ -107,7 +105,7 @@ pub fn AppShell(
     close_on_escape(state);
     apply_theme(state.theme);
     let rail_open = state.rail_open;
-    let settings = settings.unwrap_or_else(|| default_settings(state.theme));
+    let settings = settings.unwrap_or_else(default_settings);
 
     let rail_width = move || {
         if rail_open.get() {
@@ -128,31 +126,14 @@ pub fn AppShell(
 }
 
 /// The default of `AppShell`'s `settings`: one Appearance section, the
-/// theme as a [`Segmented`] of Light, Dark and System, bound to `theme`.
-fn default_settings(theme: RwSignal<Theme>) -> ViewFn {
+/// theme as a [`ThemePicker`]. `ThemePicker` reads [`theme::theme_signal`]
+/// itself (the very same instance `AppShell` already provided as
+/// `ShellState::theme`, through context), so nothing needs threading here.
+fn default_settings() -> ViewFn {
     (move || {
-        let options = vec![
-            SegmentedOption {
-                label: "Light",
-                value: Theme::Light,
-            },
-            SegmentedOption {
-                label: "Dark",
-                value: Theme::Dark,
-            },
-            SegmentedOption {
-                label: "System",
-                value: Theme::System,
-            },
-        ];
         view! {
             <DialogSection title="Appearance">
-                <Segmented
-                    aria_label="Theme"
-                    options=options
-                    value=Signal::derive(move || theme.get())
-                    on_change=Callback::new(move |value| theme.set(value))
-                />
+                <ThemePicker />
             </DialogSection>
         }
         .into_any()
@@ -447,14 +428,22 @@ mod tests {
     }
 
     #[test]
-    fn settings_default_to_appearance_with_a_segmented_theme() {
+    fn settings_default_to_appearance_with_theme_picture_cards() {
         let html = render(None);
         assert!(html.contains("Appearance"), "{html}");
         assert!(html.contains(r#"role="radiogroup""#), "{html}");
         assert!(html.contains(r#"aria-label="Theme""#), "{html}");
+        assert_eq!(html.matches(r#"role="radio""#).count(), 3, "{html}");
         assert!(html.contains("Light"), "{html}");
         assert!(html.contains("Dark"), "{html}");
         assert!(html.contains("System"), "{html}");
+        // The picture cards, not the former Segmented chips: each card is a
+        // page preview forcing its own palette, and only the checked one is
+        // a tab stop.
+        assert!(html.contains(r#"data-theme="light""#), "{html}");
+        assert!(html.contains(r#"data-theme="dark""#), "{html}");
+        assert_eq!(html.matches(r#"tabindex="0""#).count(), 1, "{html}");
+        assert_eq!(html.matches(r#"tabindex="-1""#).count(), 2, "{html}");
     }
 
     #[test]

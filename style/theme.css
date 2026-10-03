@@ -8,10 +8,18 @@
      no light preference).
    - data-theme="light" -> light tokens (the former sepia palette).
    - no data-theme      -> prefers-color-scheme decides: light media query
-     matches light tokens, otherwise the :root default (dark) applies. */
+     matches light tokens, otherwise the :root default (dark) applies.
+
+   The `[data-theme="…"]` selectors below (not just `:root[data-theme="…"]`)
+   also match a plain element: an app page forces `<html data-theme>`, but
+   `crate::theme::ThemePicker`'s own previews force a palette on a small
+   `<span data-theme="light">`/`"dark"` of their own, nested inside whatever
+   theme the page is in, the same way the gallery's Theme page forces Light
+   and Dark side by side. */
 
 :root,
-:root[data-theme="dark"] {
+:root[data-theme="dark"],
+[data-theme="dark"] {
   /* The iOS app's dark theme: cool slate, parchment text, dharma gold. */
   --ps-page: #20262e;
   --ps-card: #2c333d;
@@ -36,7 +44,8 @@
   --ps-card-to: #242a33;
   color-scheme: dark;
 }
-:root[data-theme="light"] {
+:root[data-theme="light"],
+[data-theme="light"] {
   /* The iOS app's light theme (formerly "sepia"): warm parchment. */
   --ps-page: #f7eac6;
   --ps-card: #efdeb4;
