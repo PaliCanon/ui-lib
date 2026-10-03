@@ -283,7 +283,7 @@ fn position_submenu(panel: NodeRef<html::Div>) {
         ] {
             let _ = style.remove_property(prop);
         }
-        let (vw, vh) = viewport_size();
+        let (vw, vh) = crate::viewport::visible_size();
         let entry_box = entry.get_bounding_client_rect();
         let panel_box = el.get_bounding_client_rect();
         place_vertically(&style, &entry_box, panel_box.height(), vh);
@@ -317,15 +317,6 @@ fn place_vertically(
         // Taller than the room above too: pinned just below the viewport's top.
         let _ = style.set_property("top", &format!("{}px", margin - entry.top()));
     }
-}
-
-/// The viewport's width and height in CSS pixels.
-#[cfg(feature = "hydrate")]
-fn viewport_size() -> (f64, f64) {
-    let win = window();
-    let px =
-        |v: Result<wasm_bindgen::JsValue, _>| v.ok().and_then(|v| v.as_f64()).unwrap_or(f64::MAX);
-    (px(win.inner_width()), px(win.inner_height()))
 }
 
 #[cfg(not(feature = "hydrate"))]

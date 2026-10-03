@@ -3,6 +3,11 @@
 //! itself on Escape and on a click outside both the panel and its trigger
 //! (the element whose `aria-controls` names it) — generic enough for a
 //! settings menu, a filter panel, or anything else disclosed near a button.
+//!
+//! Placement: the caller places it (layout classes), usually just below its
+//! trigger. Once open in the browser, a panel that would run past the bottom
+//! of the visible viewport is flipped above its trigger instead (when there
+//! is more room there). A `fixed` panel is left where the caller put it.
 
 use leptos::prelude::*;
 
@@ -32,13 +37,60 @@ pub fn Popover<D: Disclosure>(
     children: Children,
 ) -> impl IntoView {
     close_on_outside_interaction(controls);
+    let panel: NodeRef<leptos::html::Div> = NodeRef::new();
+    Effect::new(move |_| {
+        if controls.is_open() {
+            flip_if_overflowing(panel);
+        }
+    });
     let class = format!("{PANEL} {layout}");
     view! {
-        <div id=controls.id() role="dialog" aria-label=aria_label class=class hidden=move || !controls.is_open()>
+        <div node_ref=panel id=controls.id() role="dialog" aria-label=aria_label class=class hidden=move || !controls.is_open()>
             {children()}
         </div>
     }
 }
+
+/// How far a panel stays from the visible viewport's bottom edge.
+#[cfg(feature = "hydrate")]
+const VIEWPORT_MARGIN_PX: f64 = 8.0;
+
+/// Once the open panel is laid out: if it runs past the bottom of the
+/// visible viewport and its trigger has more room above, place it above the
+/// trigger (`bottom: 100%`). Reset first, so each opening measures afresh.
+#[cfg(feature = "hydrate")]
+fn flip_if_overflowing(panel: NodeRef<leptos::html::Div>) {
+    request_animation_frame(move || {
+        let Some(el) = panel.get_untracked() else {
+            return;
+        };
+        let style = web_sys::HtmlElement::style(&el);
+        for prop in ["top", "bottom", "margin-top", "margin-bottom"] {
+            let _ = style.remove_property(prop);
+        }
+        let fixed = window()
+            .get_computed_style(&el)
+            .ok()
+            .flatten()
+            .and_then(|s| s.get_property_value("position").ok())
+            .is_some_and(|p| p == "fixed");
+        let Some(anchor) = el.parent_element() else {
+            return;
+        };
+        let (_, vh) = crate::viewport::visible_size();
+        let rect = el.get_bounding_client_rect();
+        let room_above = anchor.get_bounding_client_rect().top();
+        if !fixed && rect.bottom() > vh - VIEWPORT_MARGIN_PX && room_above > vh - rect.top() {
+            let _ = style.set_property("top", "auto");
+            let _ = style.set_property("bottom", "100%");
+            let _ = style.set_property("margin-top", "0");
+            let _ = style.set_property("margin-bottom", "0.5rem");
+        }
+    });
+}
+
+#[cfg(not(feature = "hydrate"))]
+fn flip_if_overflowing(_panel: NodeRef<leptos::html::Div>) {}
 
 /// The browser only: Escape, or a click outside the panel and its trigger,
 /// closes `controls`. There is no window while the server renders.
