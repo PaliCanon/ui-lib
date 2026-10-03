@@ -67,7 +67,7 @@ pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> im
                 {section
                     .entries
                     .into_iter()
-                    .map(|entry| view! { <Entry entry=entry current=current size=Size::Md /> })
+                    .map(|entry| view! { <Entry entry=entry current=current size=Size::Md shown=open /> })
                     .collect_view()}
             }
         })
@@ -87,7 +87,7 @@ pub(crate) fn MobileSections(nav: NavList) -> impl IntoView {
                 {section
                     .entries
                     .into_iter()
-                    .map(|entry| view! { <Entry entry=entry current=current size=Size::Lg /> })
+                    .map(|entry| view! { <Entry entry=entry current=current size=Size::Lg shown=Signal::derive(|| true) /> })
                     .collect_view()}
             }
         })
@@ -108,14 +108,35 @@ fn SectionTitle(title: Option<&'static str>, #[prop(into)] shown: Signal<bool>) 
     }
 }
 
-/// One entry, as a link that looks like a navigation entry.
+/// One entry, as a link that looks like a navigation entry. The label
+/// fades out unless `shown`: the collapsed rail is as wide as the icon, and
+/// the label would show past it. Choosing the current entry does nothing.
 #[component]
-fn Entry(entry: NavEntry, current: Signal<String>, size: Size) -> impl IntoView {
+fn Entry(
+    entry: NavEntry,
+    current: Signal<String>,
+    size: Size,
+    #[prop(into)] shown: Signal<bool>,
+) -> impl IntoView {
     let is_current = Signal::derive(move || current.get() == entry.href);
     view! {
-        <LinkButton href=entry.href variant=Variant::Nav size=size current=is_current>
+        <LinkButton
+            href=entry.href
+            variant=Variant::Nav
+            size=size
+            current=is_current
+            // The page being shown is already there: choosing it again keeps
+            // the page and its scroll as they are.
+            on:click=move |ev: leptos::ev::MouseEvent| {
+                if is_current.get_untracked() {
+                    ev.prevent_default();
+                }
+            }
+        >
             <Icon name=entry.icon />
-            <span>{entry.label}</span>
+            <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                {entry.label}
+            </span>
         </LinkButton>
     }
 }
@@ -151,9 +172,10 @@ mod tests {
             current.contains(r#"aria-current="page""#),
             "Buttons is current: {out}"
         );
-        assert!(
-            out.contains("opacity-0"),
-            "the title fades out while closed: {out}"
+        assert_eq!(
+            out.matches("opacity-0").count(),
+            3,
+            "while closed, the title and both labels fade out: {out}"
         );
     }
 
