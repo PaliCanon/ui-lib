@@ -38,6 +38,7 @@
   --ps-subtle: #a0978c;
   --ps-gold: #c9a84c;
   --ps-gold-hover: #d8b95e;
+  --ps-gold-text: #c9a84c;
   --ps-on-gold: #20262e;
   --ps-mark: rgb(201 168 76 / 0.16);
   --ps-danger: #e07a7a;
@@ -68,6 +69,7 @@
   --ps-subtle: #6b665d;
   --ps-gold: #9e7b22;
   --ps-gold-hover: #8c6d18;
+  --ps-gold-text: #7a5f14;
   --ps-on-gold: #ffffff;
   --ps-mark: rgb(212 175 55 / 0.25);
   --ps-danger: #a83535;
@@ -100,6 +102,7 @@
     --ps-subtle: #6b665d;
     --ps-gold: #9e7b22;
     --ps-gold-hover: #8c6d18;
+    --ps-gold-text: #7a5f14;
     --ps-on-gold: #ffffff;
     --ps-mark: rgb(212 175 55 / 0.25);
     --ps-danger: #a83535;
@@ -130,6 +133,7 @@
   --color-subtle: var(--ps-subtle);
   --color-gold: var(--ps-gold);
   --color-gold-hover: var(--ps-gold-hover);
+  --color-gold-text: var(--ps-gold-text);
   --color-on-gold: var(--ps-on-gold);
   --color-mark: var(--ps-mark);
   --color-danger: var(--ps-danger);

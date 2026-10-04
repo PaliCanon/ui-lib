@@ -65,7 +65,7 @@ fn variant_classes(variant: Variant) -> &'static str {
              aria-checked:bg-gold/15 aria-checked:text-heading aria-expanded:bg-gold/15 aria-expanded:text-heading"
         }
         Variant::Ghost => {
-            "justify-center rounded-sm text-gold underline underline-offset-4 hover:text-heading"
+            "justify-center rounded-sm text-gold-text underline underline-offset-4 hover:text-heading"
         }
     }
 }
@@ -198,6 +198,13 @@ mod tests {
         let c = classes(Variant::Nav, Size::Md, "");
         assert!(c.contains("aria-checked:bg-gold/15"), "{c}");
         assert!(c.contains("aria-expanded:bg-gold/15"), "{c}");
+    }
+
+    #[test]
+    fn ghost_text_uses_the_gold_text_token_that_reaches_aa() {
+        let c = classes(Variant::Ghost, Size::Md, "");
+        assert!(c.contains("text-gold-text"), "{c}");
+        assert!(!c.contains(" text-gold "), "{c}");
     }
 
     #[test]

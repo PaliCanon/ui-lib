@@ -58,7 +58,7 @@ pub fn Footer(
                                 view! {
                                     <a
                                         href=link.href
-                                        class="text-[13px] text-muted transition hover:text-gold sm:text-sm"
+                                        class="text-[13px] text-muted transition hover:text-gold-text sm:text-sm"
                                     >
                                         {link.label}
                                     </a>
@@ -116,6 +116,18 @@ mod tests {
         let start = html.find("<footer").expect("footer");
         let tag = &html[start..start + html[start..].find('>').unwrap()];
         assert!(!tag.contains("bg-rail"), "{tag}");
+    }
+
+    #[test]
+    fn footer_links_hover_with_the_gold_text_token_that_reaches_aa() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+        let a = html.find("<a ").expect("a link");
+        let tag = &html[a..a + html[a..].find('>').unwrap()];
+        assert!(tag.contains("hover:text-gold-text"), "{tag}");
+        // `hover:text-gold-text` contains the old class: assert it with a boundary.
+        assert!(!tag.contains("hover:text-gold\""), "{tag}");
+        assert!(!tag.contains("hover:text-gold "), "{tag}");
     }
 
     #[test]

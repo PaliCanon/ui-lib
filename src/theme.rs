@@ -515,3 +515,88 @@ mod tests {
         });
     }
 }
+
+/// The AA guarantee of `--ps-gold-text`, computed from `style/theme.css`
+/// itself: every theme block must define the token and reach 4.5:1
+/// (WCAG 2.x, normal text) against each background text sits on.
+#[cfg(test)]
+mod gold_text_contrast {
+    const CSS: &str = include_str!("../style/theme.css");
+    const BACKGROUNDS: [&str; 4] = ["--ps-page", "--ps-rail", "--ps-chip", "--ps-card"];
+    /// The three blocks: (name, the selector line that opens it).
+    const BLOCKS: [(&str, &str); 3] = [
+        ("dark :root", ":root,\n:root[data-theme=\"dark\"]"),
+        ("light data-theme", ":root[data-theme=\"light\"],"),
+        ("light media query", ":root:not([data-theme]) {"),
+    ];
+
+    fn block<'a>(css: &'a str, opener: &str) -> &'a str {
+        let start = css
+            .find(opener)
+            .unwrap_or_else(|| panic!("no block {opener}"));
+        let rest = &css[start..];
+        &rest[..rest.find('}').expect("block end")]
+    }
+
+    fn hex(block: &str, token: &str) -> Option<[f64; 3]> {
+        let at = block.find(&format!("{token}:"))?;
+        let value = block[at + token.len() + 1..].split(';').next()?.trim();
+        let h = value.strip_prefix('#').filter(|h| h.len() == 6)?;
+        let ch = |i| u8::from_str_radix(&h[i..i + 2], 16).ok().map(f64::from);
+        Some([ch(0)?, ch(2)?, ch(4)?])
+    }
+
+    fn luminance([r, g, b]: [f64; 3]) -> f64 {
+        let lin = |c: f64| {
+            let c = c / 255.0;
+            if c <= 0.03928 {
+                c / 12.92
+            } else {
+                ((c + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b)
+    }
+
+    fn ratio(a: [f64; 3], b: [f64; 3]) -> f64 {
+        let (la, lb) = (luminance(a), luminance(b));
+        (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
+    }
+
+    #[test]
+    fn gold_text_reaches_aa_against_every_background_in_every_theme_block() {
+        for (name, opener) in BLOCKS {
+            let b = block(CSS, opener);
+            let gold =
+                hex(b, "--ps-gold-text").unwrap_or_else(|| panic!("{name}: no --ps-gold-text"));
+            let mut checked = 0;
+            for bg in BACKGROUNDS {
+                let Some(bgc) = hex(b, bg) else { continue };
+                let r = ratio(gold, bgc);
+                assert!(r >= 4.5, "{name}: gold-text on {bg} is {r:.2}:1, below 4.5");
+                checked += 1;
+            }
+            assert_eq!(
+                checked,
+                BACKGROUNDS.len(),
+                "{name}: a background is missing"
+            );
+        }
+    }
+
+    #[test]
+    fn a_missing_token_fails_the_lookup() {
+        let b = block(CSS, BLOCKS[0].1);
+        assert!(hex(b, "--ps-gold-text-nope").is_none());
+        assert!(hex("--ps-page: #000000;", "--ps-gold-text").is_none());
+    }
+
+    #[test]
+    fn the_old_gold_fails_aa_on_text() {
+        let old = [158.0, 123.0, 34.0]; // #9e7b22, the former --ps-gold
+        let b = block(CSS, BLOCKS[1].1);
+        let page = hex(b, "--ps-page").expect("page");
+        let r = ratio(old, page);
+        assert!(r < 4.5, "old gold on light page is {r:.2}:1");
+    }
+}
