@@ -28,11 +28,12 @@ pub struct FooterLink {
 
 /// A page footer: `links` (a real `<a>` each) and `credits` (one line each,
 /// e.g. "Texts © SuttaCentral and translators", "Dictionary: DPD, CC BY-NC 4.0").
-/// The footer spans the page column's width. On phone: a centred column, links row then
-/// credits. From `sm:` up: a three-column grid with links centred on the page in
-/// the middle column and credits at the footer's right edge, their lines still
-/// centred on each other. No credits (the default): no credits block at all;
-/// no links: no `<nav>` (no empty landmark).
+/// The credits are rendered as a list (one item per line) so a screen reader
+/// reads them as separate items. The footer spans the page column's width. On phone:
+/// a centred column, links row then credits. From `sm:` up: a three-column grid
+/// with links centred on the page in the middle column and credits at the footer's
+/// right edge, their lines still centred on each other. No credits (the default):
+/// no credits block at all; no links: no `<nav>` (no empty landmark).
 #[component]
 pub fn Footer(
     /// The service's links, in order.
@@ -67,18 +68,16 @@ pub fn Footer(
                     </nav>
                 })}
                 {(!credits.is_empty()).then(|| view! {
-                    <p class="text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
+                    <ul class="list-none m-0 p-0 text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
                         {credits
                             .into_iter()
-                            .enumerate()
-                            .map(|(i, line)| {
+                            .map(|line| {
                                 view! {
-                                    {(i > 0).then(|| view! { <br /> })}
-                                    {line}
+                                    <li>{line}</li>
                                 }
                             })
                             .collect_view()}
-                    </p>
+                    </ul>
                 })}
             </div>
         </footer>
@@ -154,9 +153,14 @@ mod tests {
         );
         assert!(html.contains("Dictionary: DPD, CC BY-NC 4.0"), "{html}");
         assert_eq!(
-            html.matches("<br").count(),
+            html.matches("<li").count(),
+            2,
+            "two <li>, one per credit line: {html}"
+        );
+        assert_eq!(
+            html.matches("<ul").count(),
             1,
-            "one <br>, between the two lines: {html}"
+            "one <ul> wrapping the credits: {html}"
         );
     }
 
@@ -206,31 +210,31 @@ mod tests {
             Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
 
         // Credits should sit at the footer's right edge
-        let p_start = html.find("<p").expect("credits paragraph");
-        let p_end = p_start + html[p_start..].find('>').expect("p end");
-        let p_tag = &html[p_start..p_end];
-        assert!(p_tag.contains("text-center"), "p: centred text: {p_tag}");
+        let ul_start = html.find("<ul").expect("credits list");
+        let ul_end = ul_start + html[ul_start..].find('>').expect("ul end");
+        let ul_tag = &html[ul_start..ul_end];
+        assert!(ul_tag.contains("text-center"), "ul: centred text: {ul_tag}");
         assert!(
-            p_tag.contains("sm:justify-self-end"),
-            "p: at right edge on desktop: {p_tag}"
+            ul_tag.contains("sm:justify-self-end"),
+            "ul: at right edge on desktop: {ul_tag}"
         );
         assert!(
-            !p_tag.contains("sm:justify-self-start"),
-            "p: not aligned to start: {p_tag}"
+            !ul_tag.contains("sm:justify-self-start"),
+            "ul: not aligned to start: {ul_tag}"
         );
         assert!(
-            !p_tag.contains("sm:border-l"),
-            "p: no left border (vertical rule): {p_tag}"
+            !ul_tag.contains("sm:border-l"),
+            "ul: no left border (vertical rule): {ul_tag}"
         );
-        assert!(!p_tag.contains("sm:ml-8"), "p: no left margin: {p_tag}");
-        assert!(!p_tag.contains("sm:pl-8"), "p: no left padding: {p_tag}");
+        assert!(!ul_tag.contains("sm:ml-8"), "ul: no left margin: {ul_tag}");
+        assert!(!ul_tag.contains("sm:pl-8"), "ul: no left padding: {ul_tag}");
     }
 
     #[test]
     fn the_credits_are_centered_on_each_other_at_every_width() {
         let html =
             Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
-        let start = html.find("<p").expect("the credits paragraph");
+        let start = html.find("<ul").expect("the credits list");
         let tag_end = start + html[start..].find('>').expect("its end");
         let tag = &html[start..tag_end];
         assert!(tag.contains("text-center"), "{tag}");
@@ -262,8 +266,8 @@ mod tests {
     fn no_credits_renders_no_line_and_no_br() {
         let html =
             Owner::new().with(|| view! { <Footer links=links() credits=vec![] /> }.to_html());
-        assert!(!html.contains("<br"), "{html}");
-        assert!(!html.contains("<p"), "no empty credits block: {html}");
+        assert!(!html.contains("<ul"), "{html}");
+        assert!(!html.contains("<li"), "no empty credits block: {html}");
     }
 
     #[test]
@@ -279,7 +283,16 @@ mod tests {
             view! { <Footer links=links() credits=vec!["Texts © SuttaCentral"] /> }.to_html()
         });
         assert!(html.contains("Texts © SuttaCentral"), "{html}");
-        assert!(!html.contains("<br"), "{html}");
+        assert_eq!(
+            html.matches("<li").count(),
+            1,
+            "one <li> for the single credit: {html}"
+        );
+        assert_eq!(
+            html.matches("<ul").count(),
+            1,
+            "one <ul> wrapping the credit: {html}"
+        );
     }
 
     #[test]
@@ -297,9 +310,14 @@ mod tests {
         assert!(html.contains("Dictionary: DPD"), "{html}");
         assert!(html.contains("Icons: Lucide"), "{html}");
         assert_eq!(
-            html.matches("<br").count(),
-            2,
-            "one <br> between each of the three lines: {html}"
+            html.matches("<li").count(),
+            3,
+            "three <li>, one per credit line: {html}"
+        );
+        assert_eq!(
+            html.matches("<ul").count(),
+            1,
+            "one <ul> wrapping the credits: {html}"
         );
     }
 
