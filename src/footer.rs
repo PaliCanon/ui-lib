@@ -34,6 +34,8 @@ pub struct FooterLink {
 /// with links centred on the page in the middle column and credits at the footer's
 /// right edge, their lines still centred on each other. No credits (the default):
 /// no credits block at all; no links: no `<nav>` (no empty landmark).
+/// Optional `leading` content (a build badge, a version) sits at the footer's left:
+/// first in the phone's centred column, in the first grid column at the left from `sm:` up.
 #[component]
 pub fn Footer(
     /// The service's links, in order.
@@ -42,11 +44,19 @@ pub fn Footer(
     /// The service's credits, one per line; none by default (no block).
     #[prop(into, default = Vec::new())]
     credits: Vec<&'static str>,
+    /// Something at the footer's left — a build badge, a version: first in
+    /// the phone's centred column, in the first column at the left from
+    /// `sm:` up. None by default (nothing rendered).
+    #[prop(optional, into)]
+    leading: Option<ViewFn>,
 ) -> impl IntoView {
     let t = strings();
     view! {
         <footer class="border-t border-line">
             <div class="flex w-full flex-col items-center gap-4 px-6 py-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-start">
+                {leading.map(|leading| view! {
+                    <div class="text-[13px] text-subtle sm:col-start-1 sm:justify-self-start">{leading.run()}</div>
+                })}
                 {(!links.is_empty()).then(|| view! {
                     <nav
                         aria-label=move || td_string!(t.locale(), footer_navigation)
@@ -345,5 +355,30 @@ mod tests {
                 "{html}"
             );
         });
+    }
+
+    /// 044 (user, 2026-10-05): a `leading` view sits at the footer's left
+    /// — first in the column, first grid column on desktop, before the nav.
+    #[test]
+    fn leading_sits_first_at_the_left_on_desktop() {
+        let html = Owner::new().with(|| {
+            view! { <Footer links=links() leading=|| view! { <span id="badge">"dev · abc1234"</span> } /> }
+                .to_html()
+        });
+        let badge = html.find(r#"id="badge""#).expect(&html);
+        let nav = html.find("<nav").expect(&html);
+        assert!(badge < nav, "{html}");
+        let start = html[..badge].rfind("<div").expect(&html);
+        let tag = &html[start..start + html[start..].find('>').expect(&html)];
+        assert!(tag.contains("sm:col-start-1"), "{tag}");
+        assert!(tag.contains("sm:justify-self-start"), "{tag}");
+        assert!(!tag.contains("justify-self-end"), "{tag}");
+    }
+
+    /// No `leading`: nothing rendered for it, the nav still first.
+    #[test]
+    fn no_leading_renders_no_first_column_item() {
+        let html = Owner::new().with(|| view! { <Footer links=links() /> }.to_html());
+        assert!(!html.contains("sm:col-start-1"), "{html}");
     }
 }
