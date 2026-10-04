@@ -57,7 +57,7 @@ pub(crate) fn RailLanguageEntry(
             <DisclosureButton controls=controls variant=Variant::Nav label_closed=label label_open=label>
                 <Icon name=IconName::Globe />
                 <span class="whitespace-nowrap transition-opacity duration-150" class:opacity-0=move || !shown.get()>
-                    {current.get().name()}
+                    {move || current.get().name()}
                 </span>
             </DisclosureButton>
         }
@@ -268,5 +268,26 @@ mod tests {
             button_with(&html, "Quay lại").contains("hidden"),
             "Back: {html}"
         );
+    }
+
+    #[test]
+    fn the_rail_language_entry_follows_the_language() {
+        use crate::button::Disclosed;
+
+        let html = Owner::new().with(|| {
+            let controls = Disclosed::new("test-language-1", RwSignal::new(false));
+            let entry = view! { <RailLanguageEntry controls=controls current=language_signal() shown=Signal::derive(|| true) /> };
+            entry.to_html()
+        });
+        assert!(html.contains("English"), "should show English: {html}");
+
+        let html = Owner::new().with(|| {
+            let controls = Disclosed::new("test-language-2", RwSignal::new(false));
+            let lang = language_signal();
+            lang.set(Language::Fr);
+            let entry = view! { <RailLanguageEntry controls=controls current=lang shown=Signal::derive(|| true) /> };
+            entry.to_html()
+        });
+        assert!(html.contains("Français"), "should show Français: {html}");
     }
 }
