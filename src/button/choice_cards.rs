@@ -27,8 +27,9 @@ pub struct ChoiceCardOption<T> {
 
 /// A row of picture cards for one value out of a few, `role="radiogroup"`:
 /// small fixed thumbnails (4.5rem wide, a 3rem-tall picture, the label
-/// under it) that never grow with the room around them, so three of them
-/// fit on one row even in a 320px-wide dialog.
+/// under it) that sit in the middle of the group's width and wrap on a
+/// narrow phone instead of overflowing. They never grow with the room
+/// around them, so three of them fit on one row even in a 320px-wide dialog.
 #[component]
 pub fn ChoiceCards<T>(
     /// Its name for assistive technology.
@@ -52,7 +53,7 @@ where
         <div
             role="radiogroup"
             aria-label=aria_label
-            class="flex gap-3"
+            class="flex flex-wrap justify-center gap-3"
             on:keydown=move |ev| choice_cards_keydown(&ev, &values, on_change)
         >
             {options
@@ -366,6 +367,28 @@ pub(crate) mod tests {
                 assert!(!tokens.contains(&class), "{marker} lacks {class}: {html}");
             }
         }
+    }
+
+    /// 042 (user, 2026-10-05): the cards sit in the middle of the group's
+    /// width (the Settings dialog's section, the gallery's Theme page)
+    /// and wrap on a narrow phone instead of overflowing.
+    #[test]
+    fn the_cards_are_centred_in_their_group_and_wrap() {
+        let html = Owner::new().with(|| {
+            view! {
+                <ChoiceCards
+                    aria_label="Theme"
+                    options=options()
+                    value=Signal::derive(|| 1_u8)
+                    on_change=|_| ()
+                />
+            }
+            .to_html()
+        });
+        let start = html.find(r#"role="radiogroup""#).expect(&html);
+        let tag = &html[start..start + html[start..].find('>').expect(&html)];
+        assert!(tag.contains("justify-center"), "{tag}");
+        assert!(tag.contains("flex-wrap"), "{tag}");
     }
 
     /// The rendered `<button>…</button>` of the card holding `marker`.
