@@ -41,6 +41,8 @@ pub enum IconName {
     /// Three shrinking lines, trailing a motion: the gallery's animations
     /// page.
     Motion,
+    /// A magnifier: a search entry.
+    Search,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -76,6 +78,12 @@ fn paths(name: IconName) -> &'static [&'static str] {
         IconName::Motion => &[
             // Three trailing lines, shrinking towards the moving shape.
             "M3 7h10", "M3 12h15", "M3 17h7",
+        ],
+        IconName::Search => &[
+            // The lens.
+            "M17 10a7 7 0 1 1-14 0 7 7 0 0 1 14 0z",
+            // The handle.
+            "M15 15l6 6",
         ],
         other => core_paths(other),
     }
@@ -190,6 +198,7 @@ mod tests {
             IconName::Dialog,
             IconName::Globe,
             IconName::Motion,
+            IconName::Search,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }

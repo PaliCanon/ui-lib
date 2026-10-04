@@ -1,0 +1,319 @@
+//! A generic page footer: the caller gives its own links and credits, the
+//! footer owns only the layout and its own small chrome (the nav's accessible
+//! name, translated).
+//!
+//! Modelled on the site's own footer
+//! (`web/src/components/Footer.tsx`): on a phone, a centred column — a row
+//! of plain links, then the credits (texts, translators, a dictionary's
+//! licence…) beneath — never spelled out here, since they differ service to
+//! service. The footer spans the page column's width. From `sm:` up, a three-column grid:
+//! links centred on the page in the middle column, credits at the footer's right
+//! edge, their lines still centred on each other; no credits, no block;
+//! no links, no `<nav>`.
+//! The bar keeps the page's background.
+
+use leptos::prelude::*;
+use leptos_i18n::td_string;
+
+use crate::catalogue::strings;
+
+/// One footer link: a label and where it goes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct FooterLink {
+    /// What it says.
+    pub label: &'static str,
+    /// Where it goes.
+    pub href: &'static str,
+}
+
+/// A page footer: `links` (a real `<a>` each) and `credits` (one line each,
+/// e.g. "Texts © SuttaCentral and translators", "Dictionary: DPD, CC BY-NC 4.0").
+/// The footer spans the page column's width. On phone: a centred column, links row then
+/// credits. From `sm:` up: a three-column grid with links centred on the page in
+/// the middle column and credits at the footer's right edge, their lines still
+/// centred on each other. No credits (the default): no credits block at all;
+/// no links: no `<nav>` (no empty landmark).
+#[component]
+pub fn Footer(
+    /// The service's links, in order.
+    #[prop(into)]
+    links: Vec<FooterLink>,
+    /// The service's credits, one per line; none by default (no block).
+    #[prop(into, default = Vec::new())]
+    credits: Vec<&'static str>,
+) -> impl IntoView {
+    let t = strings();
+    view! {
+        <footer class="border-t border-line">
+            <div class="flex w-full flex-col items-center gap-4 px-6 py-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-start">
+                {(!links.is_empty()).then(|| view! {
+                    <nav
+                        aria-label=move || td_string!(t.locale(), footer_navigation)
+                        class="flex flex-wrap justify-center gap-x-3 gap-y-2 sm:col-start-2 sm:gap-x-10"
+                    >
+                        {links
+                            .into_iter()
+                            .map(|link| {
+                                view! {
+                                    <a
+                                        href=link.href
+                                        class="text-[13px] text-muted transition hover:text-gold sm:text-sm"
+                                    >
+                                        {link.label}
+                                    </a>
+                                }
+                            })
+                            .collect_view()}
+                    </nav>
+                })}
+                {(!credits.is_empty()).then(|| view! {
+                    <p class="text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
+                        {credits
+                            .into_iter()
+                            .enumerate()
+                            .map(|(i, line)| {
+                                view! {
+                                    {(i > 0).then(|| view! { <br /> })}
+                                    {line}
+                                }
+                            })
+                            .collect_view()}
+                    </p>
+                })}
+            </div>
+        </footer>
+    }
+}
+
+#[cfg(all(test, feature = "ssr"))]
+mod tests {
+    use super::*;
+    use crate::language::{Language, language_signal};
+
+    fn links() -> Vec<FooterLink> {
+        vec![
+            FooterLink {
+                label: "Terms",
+                href: "/terms",
+            },
+            FooterLink {
+                label: "Privacy",
+                href: "/privacy",
+            },
+        ]
+    }
+
+    fn credits() -> Vec<&'static str> {
+        vec![
+            "Texts © SuttaCentral and translators",
+            "Dictionary: DPD, CC BY-NC 4.0",
+        ]
+    }
+
+    #[test]
+    fn the_footer_bar_keeps_the_pages_background() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+        let start = html.find("<footer").expect("footer");
+        let tag = &html[start..start + html[start..].find('>').unwrap()];
+        assert!(!tag.contains("bg-rail"), "{tag}");
+    }
+
+    #[test]
+    fn the_bar_is_tight_with_14px_links_on_desktop() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+        let start = html.find("<footer").expect("footer");
+        let div = start + html[start..].find("<div").expect("the container");
+        let tag = &html[div..div + html[div..].find('>').unwrap()];
+        assert!(tag.contains("py-4"), "{tag}");
+        assert!(!tag.contains("py-6"), "{tag}");
+        let a = html.find("<a ").expect("a link");
+        let tag = &html[a..a + html[a..].find('>').unwrap()];
+        assert!(tag.contains("sm:text-sm"), "{tag}");
+        assert!(!tag.contains("sm:text-[15px]"), "{tag}");
+    }
+
+    #[test]
+    fn every_link_is_a_real_anchor() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+        assert!(html.contains(r#"<a href="/terms""#), "{html}");
+        assert!(html.contains(">Terms<"), "{html}");
+        assert!(html.contains(r#"<a href="/privacy""#), "{html}");
+        assert!(html.contains(">Privacy<"), "{html}");
+    }
+
+    #[test]
+    fn every_credit_is_its_own_line() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+        assert!(
+            html.contains("Texts © SuttaCentral and translators"),
+            "{html}"
+        );
+        assert!(html.contains("Dictionary: DPD, CC BY-NC 4.0"), "{html}");
+        assert_eq!(
+            html.matches("<br").count(),
+            1,
+            "one <br>, between the two lines: {html}"
+        );
+    }
+
+    #[test]
+    fn links_centred_on_desktop() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+
+        // Container should have the grid layout on desktop
+        assert!(
+            html.contains("flex-col items-center"),
+            "phone: centred column: {html}"
+        );
+        assert!(
+            html.contains("sm:grid-cols-[1fr_auto_1fr]"),
+            "desktop: three-column grid: {html}"
+        );
+
+        // Container should span full width (no max-w constraint)
+        let footer_start = html.find("<footer").expect("footer tag");
+        let div_start = html[footer_start..].find("<div").expect("main div");
+        let actual_div_start = footer_start + div_start;
+        let div_end = actual_div_start + html[actual_div_start..].find('>').expect("div end");
+        let div_tag = &html[actual_div_start..div_end];
+        assert!(
+            !div_tag.contains("max-w-"),
+            "footer spans full width, no max-w: {div_tag}"
+        );
+
+        // Nav should be centred and in the middle column on desktop
+        let nav_start = html.find("<nav").expect("nav tag");
+        let nav_end = nav_start + html[nav_start..].find('>').expect("nav end");
+        let nav_tag = &html[nav_start..nav_end];
+        assert!(
+            nav_tag.contains("justify-center"),
+            "nav: centred links: {nav_tag}"
+        );
+        assert!(
+            nav_tag.contains("sm:col-start-2"),
+            "nav: middle column on desktop: {nav_tag}"
+        );
+    }
+
+    #[test]
+    fn credits_at_the_footers_right_edge_on_desktop() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+
+        // Credits should sit at the footer's right edge
+        let p_start = html.find("<p").expect("credits paragraph");
+        let p_end = p_start + html[p_start..].find('>').expect("p end");
+        let p_tag = &html[p_start..p_end];
+        assert!(p_tag.contains("text-center"), "p: centred text: {p_tag}");
+        assert!(
+            p_tag.contains("sm:justify-self-end"),
+            "p: at right edge on desktop: {p_tag}"
+        );
+        assert!(
+            !p_tag.contains("sm:justify-self-start"),
+            "p: not aligned to start: {p_tag}"
+        );
+        assert!(
+            !p_tag.contains("sm:border-l"),
+            "p: no left border (vertical rule): {p_tag}"
+        );
+        assert!(!p_tag.contains("sm:ml-8"), "p: no left margin: {p_tag}");
+        assert!(!p_tag.contains("sm:pl-8"), "p: no left padding: {p_tag}");
+    }
+
+    #[test]
+    fn the_credits_are_centered_on_each_other_at_every_width() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=credits() /> }.to_html());
+        let start = html.find("<p").expect("the credits paragraph");
+        let tag_end = start + html[start..].find('>').expect("its end");
+        let tag = &html[start..tag_end];
+        assert!(tag.contains("text-center"), "{tag}");
+    }
+
+    #[test]
+    fn no_links_renders_no_nav() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=vec![] credits=credits() /> }.to_html());
+        assert!(!html.contains("<a "), "{html}");
+        assert!(!html.contains("<nav"), "no empty landmark: {html}");
+        assert!(html.contains("Dictionary: DPD, CC BY-NC 4.0"), "{html}");
+    }
+
+    #[test]
+    fn one_link_renders_one_anchor() {
+        let html = Owner::new().with(|| {
+            view! {
+                <Footer links=vec![FooterLink { label: "Terms", href: "/terms" }] />
+            }
+            .to_html()
+        });
+        assert_eq!(html.matches("<a ").count(), 1, "{html}");
+        assert!(html.contains(r#"<a href="/terms""#), "{html}");
+        assert_eq!(html.matches("<nav").count(), 1, "{html}");
+    }
+
+    #[test]
+    fn no_credits_renders_no_line_and_no_br() {
+        let html =
+            Owner::new().with(|| view! { <Footer links=links() credits=vec![] /> }.to_html());
+        assert!(!html.contains("<br"), "{html}");
+        assert!(!html.contains("<p"), "no empty credits block: {html}");
+    }
+
+    #[test]
+    fn credits_are_optional() {
+        let html = Owner::new().with(|| view! { <Footer links=links() /> }.to_html());
+        assert!(html.contains(r#"<a href="/terms""#), "{html}");
+        assert!(!html.contains("<p"), "no credits, no block: {html}");
+    }
+
+    #[test]
+    fn one_credit_line_has_no_br() {
+        let html = Owner::new().with(|| {
+            view! { <Footer links=links() credits=vec!["Texts © SuttaCentral"] /> }.to_html()
+        });
+        assert!(html.contains("Texts © SuttaCentral"), "{html}");
+        assert!(!html.contains("<br"), "{html}");
+    }
+
+    #[test]
+    fn three_or_more_credit_lines_each_get_their_own_br() {
+        let html = Owner::new().with(|| {
+            view! {
+                <Footer
+                    links=links()
+                    credits=vec!["Texts © SuttaCentral", "Dictionary: DPD", "Icons: Lucide"]
+                />
+            }
+            .to_html()
+        });
+        assert!(html.contains("Texts © SuttaCentral"), "{html}");
+        assert!(html.contains("Dictionary: DPD"), "{html}");
+        assert!(html.contains("Icons: Lucide"), "{html}");
+        assert_eq!(
+            html.matches("<br").count(),
+            2,
+            "one <br> between each of the three lines: {html}"
+        );
+    }
+
+    #[test]
+    fn the_nav_aria_label_follows_the_language() {
+        Owner::new().with(|| {
+            let html = view! { <Footer links=links() credits=credits() /> }.to_html();
+            assert!(html.contains(r#"aria-label="Footer navigation""#), "{html}");
+            language_signal().set(Language::Fr);
+            let html = view! { <Footer links=links() credits=credits() /> }.to_html();
+            assert!(
+                html.contains(r#"aria-label="Navigation de pied de page""#),
+                "{html}"
+            );
+        });
+    }
+}

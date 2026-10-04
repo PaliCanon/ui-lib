@@ -40,12 +40,17 @@
 //!   Language (the globe and the current language's name, opening a menu of
 //!   the languages) and Settings (a [`dialog::Dialog`], the theme as a
 //!   [`theme::ThemePicker`] by default) pinned at the bottom.
+//! - [`footer`] — [`footer::Footer`]: the caller's own links and credits;
+//!   on a phone stacked and centred, from `sm` a 1fr/auto/1fr grid — the
+//!   links centred on the full width, the credits at the right edge; no
+//!   credits, no block. It owns only the layout and its own nav label.
 
 pub mod button;
 mod catalogue;
 pub mod dialog;
 pub mod env_badge;
 mod focus_trap;
+pub mod footer;
 pub mod icon;
 pub mod language;
 mod language_menu;
@@ -71,6 +76,7 @@ pub use button::{
 };
 pub use dialog::{Dialog, DialogSection};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
+pub use footer::{Footer, FooterLink};
 pub use icon::{Icon, IconName};
 pub use language::{Language, language_attribute, language_signal, provide_language};
 pub use menu::{DrillMenu, Menu, MenuItem};

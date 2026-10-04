@@ -50,12 +50,12 @@
 }
 :root[data-theme="light"],
 [data-theme="light"] {
-  /* Light: bright linen page, parchment rail, white cards, mineral-black headings, dark sepia text, burnt-bronze accent (user palette v5, 2026-10-04). */
+  /* Light: bright linen page, parchment rail, white cards, mineral-black headings, dark sepia text, antique-gold accent #9E7B22 (user, 2026-10-04: back to gold). */
   --ps-page: #f8f6f0;
   --ps-rail: #eee9de;
-  --ps-primary: #efe4cf;
-  --ps-primary-hover: #e6d6b8;
-  --ps-on-primary: #61420b;
+  --ps-primary: #f4e9cc;
+  --ps-primary-hover: #ecdcb2;
+  --ps-on-primary: #6e5410;
   --ps-card: #ffffff;
   --ps-card-edge: #e3dccd;
   --ps-chip: #f3efe6;
@@ -66,8 +66,8 @@
   --ps-ink: #4a463f;
   --ps-muted: #4a463f;
   --ps-subtle: #6b665d;
-  --ps-gold: #785313;
-  --ps-gold-hover: #61420b;
+  --ps-gold: #9e7b22;
+  --ps-gold-hover: #8c6d18;
   --ps-on-gold: #ffffff;
   --ps-mark: rgb(212 175 55 / 0.25);
   --ps-danger: #a83535;
@@ -85,9 +85,9 @@
   :root:not([data-theme]) {
     --ps-page: #f8f6f0;
   --ps-rail: #eee9de;
-  --ps-primary: #efe4cf;
-  --ps-primary-hover: #e6d6b8;
-  --ps-on-primary: #61420b;
+  --ps-primary: #f4e9cc;
+  --ps-primary-hover: #ecdcb2;
+  --ps-on-primary: #6e5410;
     --ps-card: #ffffff;
     --ps-card-edge: #e3dccd;
     --ps-chip: #f3efe6;
@@ -98,8 +98,8 @@
     --ps-ink: #4a463f;
     --ps-muted: #4a463f;
     --ps-subtle: #6b665d;
-    --ps-gold: #785313;
-    --ps-gold-hover: #61420b;
+    --ps-gold: #9e7b22;
+    --ps-gold-hover: #8c6d18;
     --ps-on-gold: #ffffff;
     --ps-mark: rgb(212 175 55 / 0.25);
     --ps-danger: #a83535;

@@ -2,7 +2,12 @@
 //!
 //! - **Desktop** (≥ 640 px): a navigation rail on the left. Collapsed, it
 //!   shows the lotus only; the lotus opens it (the name appears) and closes
-//!   it. The page beside it moves with it. Open or closed is remembered
+//!   it. The page sits beside it; the rail spans the page's full height and its
+//!   content sticks, capped at the viewport height. An optional footer is the
+//!   page column's last block, beside the rail, at the bottom of a short page.
+//!   The shell is one column at least a screen tall: the top bar (phone),
+//!   then the rail-and-page row — a short page is one screen on both.
+//!   Open or closed is remembered
 //!   ([`persisted`](fn@crate::persisted), cookie `pc_rail`), across pages and subdomains.
 //! - **Mobile**: a top bar with the lotus; the lotus opens the navigation
 //!   full screen, the lotus or ✕ closes it. Always closed when a page loads,
@@ -115,7 +120,11 @@ fn Wordmark(#[prop(into)] shown: Signal<bool>) -> impl IntoView {
 }
 
 /// The shell around a service's page. `logo` is the lotus image's URL
-/// (the service serves it; `/lotus.png` by default).
+/// (the service serves it; `/lotus.png` by default). One column at least a
+/// screen tall holds the top bar (phone), then the rail-and-page row: the
+/// rail spans the page's full height; beside it the page column ends with
+/// the optional `footer`, at the bottom of a short page — one screen on a
+/// phone and on a desktop alike.
 #[component]
 pub fn AppShell(
     /// URL of the lotus image, served by the service.
@@ -133,6 +142,10 @@ pub fn AppShell(
     /// the top bar (mobile); none by default.
     #[prop(optional)]
     env_badge: Option<EnvBadgeInfo>,
+    /// A footer at the bottom of the page column, beside the rail; none by
+    /// default.
+    #[prop(optional, into)]
+    footer: Option<ViewFn>,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
@@ -141,15 +154,22 @@ pub fn AppShell(
     close_on_escape(state);
     apply_theme(state.theme);
     apply_language(state.language);
-    let rail_open = state.rail_open;
     let settings = settings.unwrap_or_else(default_settings);
     view! {
-        <DesktopRail logo=logo nav=nav.clone() env_badge=env_badge />
-        <MobileNav logo=logo nav=nav env_badge=env_badge />
         <SettingsDialog settings=settings />
-        // The service's page, beside the rail on desktop.
-        <div class="transition-[padding] duration-200 sm:pl-(--pc-rail)" style:--pc-rail=move || rail_width(rail_open.get())>
-            {children()}
+        // One column at least a screen tall: the top bar (phone), then the
+        // row — the rail first, the full height of the page; beside it the
+        // page column, its footer at the bottom. A short page is one screen,
+        // top bar included.
+        <div class="flex min-h-screen flex-col">
+            <MobileNav logo=logo nav=nav.clone() env_badge=env_badge />
+            <div class="flex flex-1 flex-col sm:flex-row">
+                <DesktopRail logo=logo nav=nav env_badge=env_badge />
+                <div class="flex min-w-0 flex-1 flex-col">
+                    {children()}
+                    {footer.map(|footer| view! { <div class="mt-auto">{footer.run()}</div> })}
+                </div>
+            </div>
         </div>
     }
 }
@@ -305,8 +325,9 @@ fn LotusToggle<D: Disclosure>(controls: D, logo: &'static str) -> impl IntoView 
 /// The desktop rail: the lotus opens and closes it; the name shows when
 /// open. The Language and Settings entries at its bottom open
 /// [`LanguageMenu`] and [`SettingsDialog`], siblings of the rail (not
-/// nested in it): they float over the page, not clipped by the rail's own
-/// `overflow-hidden`.
+/// nested in it): they float over the page, not clipped by the rail's content
+/// block's `overflow-hidden`. The nav stretches with the page row; its content
+/// is a sticky flex column capped at the viewport height.
 #[component]
 fn DesktopRail(
     logo: &'static str,
@@ -324,18 +345,20 @@ fn DesktopRail(
         <nav
             id="pc-rail"
             aria-label="PaliCanon"
-            class="fixed inset-y-0 left-0 z-30 hidden flex-col overflow-hidden border-r border-line bg-rail transition-[width] duration-200 sm:flex"
+            class="z-30 hidden shrink-0 border-r border-line bg-rail transition-[width] duration-200 sm:block"
             style:width=move || rail_width(rail_open.get())
             data-open=move || rail_open.get().to_string()
         >
-            <div class="flex items-center gap-3 p-3.5">
-                <LotusToggle controls=Disclosed::new("pc-rail", rail_open) logo=logo />
-                <Wordmark shown=rail_open />
+            <div class="sticky top-0 flex h-full max-h-screen flex-col overflow-hidden">
+                <div class="flex items-center gap-3 p-3.5">
+                    <LotusToggle controls=Disclosed::new("pc-rail", rail_open) logo=logo />
+                    <Wordmark shown=rail_open />
+                </div>
+                <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
+                    {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
+                </div>
+                <RailBottom language_menu=language_menu shown=rail_open env_badge=env_badge />
             </div>
-            <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
-                {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
-            </div>
-            <RailBottom language_menu=language_menu shown=rail_open env_badge=env_badge />
         </nav>
         <LanguageMenu
             controls=language_menu
@@ -345,10 +368,10 @@ fn DesktopRail(
     }
 }
 
-/// The rail's bottom block, pinned there by `mt-auto` (the rail is a flex
-/// column): the Language entry, then Settings, then the env badge when
-/// given, fading like the entries' labels while the rail is collapsed (it
-/// would not fit in the icon-only collapsed width).
+/// The rail's bottom block, pinned there by `mt-auto` (the rail's sticky
+/// content block is a flex column): the Language entry, then Settings, then the env badge when
+/// given. The badge is hidden while the rail is collapsed (it would not fit,
+/// and it must not hold space under the entries), shown when the rail opens.
 #[component]
 fn RailBottom(
     language_menu: Disclosed,
@@ -362,11 +385,11 @@ fn RailBottom(
     } = expect_context::<ShellState>();
     let settings = Disclosed::new("pc-settings", settings_open);
     view! {
-        <div class="mt-auto flex flex-col gap-1 border-t border-line p-3.5">
+        <div class="mt-auto flex flex-col gap-1 p-3.5">
             <RailLanguageEntry controls=language_menu current=language shown=shown />
             <RailSettingsEntry settings=settings shown=shown />
             {env_badge.map(|info| view! {
-                <div class="mt-2 transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                <div class="mt-2" class:hidden=move || !shown.get()>
                     <EnvBadge env=info.env sha=info.sha />
                 </div>
             })}
@@ -577,6 +600,15 @@ mod tests {
     }
 
     #[test]
+    fn the_rails_bottom_block_has_no_rule_above_it() {
+        let html = render(None);
+        let rail = rail(&html);
+        let from = &rail[rail.find("mt-auto").expect("bottom block")..];
+        let tag = &from[..from.find('>').unwrap()];
+        assert!(!tag.contains("border-t"), "{tag}");
+    }
+
+    #[test]
     fn the_language_entry_sits_above_settings_in_the_rail() {
         let html = render(None);
         let rail = rail(&html);
@@ -613,9 +645,14 @@ mod tests {
     #[test]
     fn the_language_menu_lists_the_three_in_order_with_the_current_one_checked() {
         let html = render_cookies(Some("pc_lang=fr"));
-        let panel = &html[html.find(r#"id="pc-language""#).expect("menu panel")..];
-        // Up to the mobile navigation, which has its own three choices.
-        let panel = &panel[..panel.find(r#"id="pc-menu""#).expect("mobile menu")];
+        let start = html.find(r#"id="pc-language""#).expect("menu panel");
+        let end = start
+            + html[start..]
+                .find(r#"<div class="flex min-w-0 flex-1 flex-col""#)
+                .expect("the page column after it");
+        // The mobile navigation, with its own three choices, comes before
+        // it; the page column, after it.
+        let panel = &html[start..end];
         let rows: Vec<&str> = panel.split(r#"role="menuitemradio""#).skip(1).collect();
         assert_eq!(rows.len(), 3, "{panel}");
         for (row, name) in rows.iter().zip(["English", "Français", "Tiếng Việt"]) {
@@ -1107,6 +1144,90 @@ mod tests {
         }
     }
 
+    /// T1: on a phone the top bar sits in the column that carries
+    /// `min-h-screen`, so a short page is one screen, top bar included —
+    /// then the rail-and-page row, then the page, then its footer.
+    /// The README rows and the crate doc say the footer's final layout
+    /// and the shell's `footer` slot (review Δ4).
+    #[test]
+    fn the_readme_and_crate_doc_say_the_final_footer_layout() {
+        let readme = include_str!("../README.md");
+        let row = |item: &str| {
+            readme
+                .lines()
+                .find(|line| line.starts_with(&format!("| `{item}`")))
+                .unwrap_or_else(|| panic!("a README row for {item}"))
+        };
+        let footer = row("Footer");
+        for said in ["1fr/auto/1fr", "right edge", "no credits"] {
+            assert!(footer.contains(said), "{said}: {footer}");
+        }
+        assert!(!footer.contains("one row from `sm` up"), "{footer}");
+        let shell = row("AppShell");
+        for said in [
+            "`footer`",
+            "full height",
+            "hidden while the rail is collapsed",
+        ] {
+            assert!(shell.contains(said), "{said}: {shell}");
+        }
+        let lib = include_str!("lib.rs");
+        assert!(!lib.contains("laid out one row on desktop"), "lib.rs");
+        assert!(lib.contains("1fr/auto/1fr"), "lib.rs");
+    }
+
+    #[test]
+    fn the_footer_sits_in_the_page_column_beside_the_full_height_rail() {
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell footer=|| view! { <footer id="f">"foot"</footer> }>"page"</AppShell>
+            }
+            .to_html()
+        });
+        let column = html
+            .find(r#"<div class="flex min-h-screen flex-col""#)
+            .expect("the screen-tall column");
+        let header = html.find("<header").expect("the mobile top bar");
+        let row = html
+            .find(r#"<div class="flex flex-1 flex-col sm:flex-row""#)
+            .expect("the rail-and-page row");
+        let rail_at = html.find(r#"<nav id="pc-rail""#).expect("the rail");
+        let page_column = html
+            .find(r#"<div class="flex min-w-0 flex-1 flex-col""#)
+            .expect("the page column");
+        // The children, inside the page column (a theme card's class may
+        // say `page` earlier, in the Settings dialog).
+        let page = page_column + html[page_column..].find("page").expect("page");
+        let footer = html.find("<footer").expect("footer");
+        assert!(column < header, "the column holds the top bar: {html}");
+        assert!(header < row, "the top bar, then the row: {html}");
+        assert!(row < rail_at, "the row holds the rail: {html}");
+        assert!(rail_at < page_column, "the rail, then the page: {html}");
+        assert!(page < footer, "the page, then its footer: {html}");
+        let mut plain = html.clone();
+        while let Some(start) = plain.find("<!--") {
+            let end = start + plain[start..].find("-->").expect("comment end") + 3;
+            plain.replace_range(start..end, "");
+        }
+        assert!(plain.contains(r#"<div class="mt-auto"><footer"#), "{plain}");
+        let rail = rail(&html);
+        let open_tag = &rail[..rail.find('>').expect("nav open tag")];
+        for banned in ["sticky", "h-screen", "fixed"] {
+            assert!(!open_tag.contains(banned), "{banned}: {open_tag}");
+        }
+        assert!(rail.contains("sticky top-0"), "{rail}");
+        assert!(rail.contains("max-h-screen"), "{rail}");
+        assert!(!html.contains("min-h-screen sm:flex"), "{html}");
+        assert!(html.contains("flex min-w-0 flex-1 flex-col"), "{html}");
+        assert!(!html.contains("sm:pl-(--pc-rail)"), "{html}");
+    }
+
+    #[test]
+    fn no_footer_renders_no_footer_element() {
+        let html = Owner::new().with(|| view! { <AppShell>"page"</AppShell> }.to_html());
+        assert!(!html.contains("<footer"), "{html}");
+    }
+
     #[test]
     fn no_env_badge_by_default() {
         let html = render(None);
@@ -1148,48 +1269,45 @@ mod tests {
         assert!(header.contains(long), "{header}");
     }
 
-    #[test]
-    fn the_rail_badge_fades_with_the_rail_and_shows_once_open() {
+    /// The open tag of the rail badge's wrapper (the tag whose class starts
+    /// with `mt-2`), for a rail cookie value.
+    fn badge_wrapper(rail_cookie: &str) -> String {
         use crate::EnvBadgeInfo;
-        let render_with = |rail_cookie: &str, env_badge: Option<EnvBadgeInfo>| {
-            Owner::new().with(|| {
-                let request = http::Request::builder()
-                    .header(http::header::COOKIE, format!("pc_rail={rail_cookie}"))
-                    .body(())
-                    .unwrap();
-                provide_context(request.into_parts().0);
-                match env_badge {
-                    Some(info) => {
-                        view! { <AppShell env_badge=info><p>"page"</p></AppShell> }.to_html()
-                    }
-                    None => view! { <AppShell><p>"page"</p></AppShell> }.to_html(),
-                }
-            })
-        };
-        let info = EnvBadgeInfo {
-            env: "main",
-            sha: "a1b2c3f",
-        };
+        let html = Owner::new().with(|| {
+            let request = http::Request::builder()
+                .header(http::header::COOKIE, format!("pc_rail={rail_cookie}"))
+                .body(())
+                .unwrap();
+            provide_context(request.into_parts().0);
+            view! {
+                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "abc1234" }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        let rail = rail(&html);
+        let at = rail.find(r#"class="mt-2"#).expect("badge wrapper");
+        let start = rail[..at].rfind('<').unwrap();
+        rail[start..start + rail[start..].find('>').unwrap()].to_string()
+    }
 
-        // Collapsed: the badge's own wrapper adds exactly one more fading
-        // element next to whatever already fades (Wordmark, Settings' label).
-        let closed_without = render_with("false", None);
-        let closed_with = render_with("false", Some(info));
-        assert_eq!(
-            closed_with.matches("opacity-0").count(),
-            closed_without.matches("opacity-0").count() + 1,
-            "{closed_with}"
+    #[test]
+    fn a_collapsed_rails_env_badge_is_out_of_the_flow() {
+        let tag = badge_wrapper("false");
+        assert!(tag.contains("hidden"), "{tag}");
+        assert!(!tag.contains("opacity-0"), "{tag}");
+        assert!(
+            !tag.contains("transition-opacity"),
+            "no fade on a hidden badge: {tag}"
         );
+    }
 
-        // Open: nothing fades, badge included — its wrapper's `opacity-0`
-        // token is conditional, and the condition is now false.
-        let open_without = render_with("true", None);
-        let open_with = render_with("true", Some(info));
-        assert_eq!(
-            open_with.matches("opacity-0").count(),
-            open_without.matches("opacity-0").count(),
-            "{open_with}"
-        );
+    #[test]
+    fn the_rail_badge_shows_once_the_rail_is_open() {
+        let tag = badge_wrapper("true");
+        assert!(!tag.contains("hidden"), "{tag}");
+        assert!(!tag.contains("opacity-0"), "{tag}");
     }
 
     #[test]
