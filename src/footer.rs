@@ -54,41 +54,50 @@ pub fn Footer(
     view! {
         <footer class="border-t border-line">
             <div class="flex w-full flex-col items-center gap-4 px-6 py-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-start">
-                {leading.map(|leading| view! {
-                    <div class="text-[13px] text-subtle sm:col-start-1 sm:justify-self-start">{leading.run()}</div>
-                })}
-                {(!links.is_empty()).then(|| view! {
-                    <nav
-                        aria-label=move || td_string!(t.locale(), footer_navigation)
-                        class="flex flex-wrap justify-center gap-x-3 gap-y-2 sm:col-start-2 sm:gap-x-10"
-                    >
-                        {links
-                            .into_iter()
-                            .map(|link| {
-                                view! {
-                                    <a
-                                        href=link.href
-                                        class="text-[13px] text-muted transition hover:text-gold-text sm:text-sm"
-                                    >
-                                        {link.label}
-                                    </a>
-                                }
-                            })
-                            .collect_view()}
-                    </nav>
-                })}
-                {(!credits.is_empty()).then(|| view! {
-                    <ul class="list-none m-0 p-0 text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
-                        {credits
-                            .into_iter()
-                            .map(|line| {
-                                view! {
-                                    <li>{line}</li>
-                                }
-                            })
-                            .collect_view()}
-                    </ul>
-                })}
+                {leading
+                    .map(|leading| {
+                        view! {
+                            <div class="text-[13px] text-subtle sm:col-start-1 sm:justify-self-start">
+                                {leading.run()}
+                            </div>
+                        }
+                    })}
+                {(!links.is_empty())
+                    .then(|| {
+                        view! {
+                            <nav
+                                aria-label=move || td_string!(t.locale(), footer_navigation)
+                                class="flex flex-wrap justify-center gap-x-3 gap-y-2 sm:col-start-2 sm:gap-x-10"
+                            >
+                                {links
+                                    .into_iter()
+                                    .map(|link| {
+                                        view! {
+                                            <a
+                                                href=link.href
+                                                class="text-[13px] text-muted transition hover:text-gold-text sm:text-sm"
+                                            >
+                                                {link.label}
+                                            </a>
+                                        }
+                                    })
+                                    .collect_view()}
+                            </nav>
+                        }
+                    })}
+                {(!credits.is_empty())
+                    .then(|| {
+                        view! {
+                            <ul class="list-none m-0 p-0 text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
+                                {credits
+                                    .into_iter()
+                                    .map(|line| {
+                                        view! { <li>{line}</li> }
+                                    })
+                                    .collect_view()}
+                            </ul>
+                        }
+                    })}
             </div>
         </footer>
     }
@@ -275,7 +284,12 @@ mod tests {
     fn one_link_renders_one_anchor() {
         let html = Owner::new().with(|| {
             view! {
-                <Footer links=vec![FooterLink { label: "Terms", href: "/terms" }] />
+                <Footer links=vec![
+                    FooterLink {
+                        label: "Terms",
+                        href: "/terms",
+                    },
+                ] />
             }
             .to_html()
         });

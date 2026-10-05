@@ -54,9 +54,17 @@ pub(crate) fn RailLanguageEntry(
     move || {
         let label = td_string!(t.locale(), language);
         view! {
-            <DisclosureButton controls=controls variant=Variant::Nav label_closed=label label_open=label>
+            <DisclosureButton
+                controls=controls
+                variant=Variant::Nav
+                label_closed=label
+                label_open=label
+            >
                 <Icon name=IconName::Globe />
-                <span class="whitespace-nowrap transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                <span
+                    class="whitespace-nowrap transition-opacity duration-150"
+                    class:opacity-0=move || !shown.get()
+                >
                     {move || current.get().name()}
                 </span>
             </DisclosureButton>
@@ -276,7 +284,13 @@ mod tests {
 
         let html = Owner::new().with(|| {
             let controls = Disclosed::new("test-language-1", RwSignal::new(false));
-            let entry = view! { <RailLanguageEntry controls=controls current=language_signal() shown=Signal::derive(|| true) /> };
+            let entry = view! {
+                <RailLanguageEntry
+                    controls=controls
+                    current=language_signal()
+                    shown=Signal::derive(|| true)
+                />
+            };
             entry.to_html()
         });
         assert!(html.contains("English"), "should show English: {html}");

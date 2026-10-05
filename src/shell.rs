@@ -225,7 +225,11 @@ fn SettingsDialog(settings: ViewFn) -> impl IntoView {
     let controls = Disclosed::new("pc-settings", state.settings_open);
     let t = strings();
     let title = Signal::derive(move || td_string!(t.locale(), settings).to_owned());
-    view! { <Dialog controls=controls title=title>{settings.run()}</Dialog> }
+    view! {
+        <Dialog controls=controls title=title>
+            {settings.run()}
+        </Dialog>
+    }
 }
 
 /// Escape closes the rail and the mobile navigation, or only the language
@@ -315,7 +319,12 @@ fn LotusToggle<D: Disclosure>(controls: D, logo: &'static str) -> impl IntoView 
         let open = td_string!(t.locale(), open_navigation);
         let close = td_string!(t.locale(), close_navigation);
         view! {
-            <DisclosureButton controls=controls variant=Variant::Icon label_closed=open label_open=close>
+            <DisclosureButton
+                controls=controls
+                variant=Variant::Icon
+                label_closed=open
+                label_open=close
+            >
                 <Lotus logo=logo />
             </DisclosureButton>
         }
@@ -388,11 +397,14 @@ fn RailBottom(
         <div class="mt-auto flex flex-col gap-1 p-3.5">
             <RailLanguageEntry controls=language_menu current=language shown=shown />
             <RailSettingsEntry settings=settings shown=shown />
-            {env_badge.map(|info| view! {
-                <div class="mt-2" class:hidden=move || !shown.get()>
-                    <EnvBadge env=info.env sha=info.sha />
-                </div>
-            })}
+            {env_badge
+                .map(|info| {
+                    view! {
+                        <div class="mt-2" class:hidden=move || !shown.get()>
+                            <EnvBadge env=info.env sha=info.sha />
+                        </div>
+                    }
+                })}
         </div>
     }
 }
@@ -405,7 +417,12 @@ fn RailSettingsEntry(settings: Disclosed, #[prop(into)] shown: Signal<bool>) -> 
     move || {
         let label = td_string!(t.locale(), settings);
         view! {
-            <DisclosureButton controls=settings variant=Variant::Nav label_closed=label label_open=label>
+            <DisclosureButton
+                controls=settings
+                variant=Variant::Nav
+                label_closed=label
+                label_open=label
+            >
                 <Icon name=IconName::Gear />
                 <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
                     {label}
@@ -431,11 +448,14 @@ fn MobileNav(
         <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-rail px-2 sm:hidden">
             <LotusToggle controls=menu logo=logo />
             <Wordmark shown=Signal::derive(|| true) />
-            {env_badge.map(|info| view! {
-                <div class="ml-auto max-w-[8rem]">
-                    <EnvBadge env=info.env sha=info.sha />
-                </div>
-            })}
+            {env_badge
+                .map(|info| {
+                    view! {
+                        <div class="ml-auto max-w-[8rem]">
+                            <EnvBadge env=info.env sha=info.sha />
+                        </div>
+                    }
+                })}
         </header>
         <div
             id="pc-menu"
@@ -449,7 +469,10 @@ fn MobileNav(
             // Clicks bubble up from the entries: choosing one closes the menu.
             // Language and Settings sit outside this container: choosing a
             // language or opening Settings must not close the mobile menu.
-            <div class="flex flex-col gap-1 overflow-y-auto p-3" on:click=move |_| menu.set_open(false)>
+            <div
+                class="flex flex-col gap-1 overflow-y-auto p-3"
+                on:click=move |_| menu.set_open(false)
+            >
                 {nav.map(|nav| view! { <MobileSections nav=nav /> })}
             </div>
             <MobileBottom />
@@ -518,7 +541,13 @@ fn MobileSettings(settings: Disclosed) -> impl IntoView {
     move || {
         let label = td_string!(t.locale(), settings);
         view! {
-            <DisclosureButton controls=settings variant=Variant::Nav size=Size::Lg label_closed=label label_open=label>
+            <DisclosureButton
+                controls=settings
+                variant=Variant::Nav
+                size=Size::Lg
+                label_closed=label
+                label_open=label
+            >
                 <Icon name=IconName::Gear />
                 <span>{label}</span>
             </DisclosureButton>
@@ -543,7 +572,16 @@ fn MobileMenuHeader(logo: &'static str, menu: MobileNavigation) -> impl IntoView
                         layout="ml-auto"
                         on_click=move |_| menu.set_open(false)
                     >
-                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            aria-hidden="true"
+                        >
                             <path d="m4 4 8 8M12 4l-8 8" />
                         </svg>
                     </Button>
@@ -578,7 +616,12 @@ mod tests {
                     .unwrap();
                 provide_context(request.into_parts().0);
             }
-            view! { <AppShell><p>"page"</p></AppShell> }.to_html()
+            view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
         })
     }
 
@@ -700,7 +743,11 @@ mod tests {
     #[test]
     fn closing_the_navigation_resets_the_language_drill() {
         let html = Owner::new().with(|| {
-            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
             let state = expect_context::<ShellState>();
             let navigation = mobile_navigation(state);
             navigation.set_open(true);
@@ -733,7 +780,11 @@ mod tests {
     #[test]
     fn switching_the_language_renames_the_mobile_row() {
         let html = Owner::new().with(|| {
-            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
             language_signal().set(Language::Fr);
             shell.to_html()
         });
@@ -782,7 +833,11 @@ mod tests {
     fn switching_the_language_re_renders_the_language_entry_and_settings() {
         let html = Owner::new().with(|| {
             let language = language_signal();
-            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
             language.set(Language::Fr);
             shell.to_html()
         });
@@ -800,7 +855,11 @@ mod tests {
     #[test]
     fn switching_twice_keeps_one_language_menu() {
         let html = Owner::new().with(|| {
-            let shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
             language_signal().set(Language::Fr);
             language_signal().set(Language::Vi);
             shell.to_html()
@@ -836,7 +895,11 @@ mod tests {
                 }]
             });
             let nav = NavList::new(sections, "/".to_string());
-            let shell = view! { <AppShell nav=nav><p>"page"</p></AppShell> };
+            let shell = view! {
+                <AppShell nav=nav>
+                    <p>"page"</p>
+                </AppShell>
+            };
             language.set(Language::Fr);
             language.set(Language::Vi);
             shell.to_html()
@@ -885,7 +948,11 @@ mod tests {
     /// The shell's state, built as `AppShell` builds it, with the rail
     /// open and the desktop language menu `language_open`.
     fn open_shell(language_open: bool) -> ShellState {
-        let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+        let _shell = view! {
+            <AppShell>
+                <p>"page"</p>
+            </AppShell>
+        };
         let state = expect_context::<ShellState>();
         state.rail_open.set(true);
         state.language_open.set(language_open);
@@ -992,7 +1059,11 @@ mod tests {
             let page = provide_language();
             let beside = root.child().with(language_signal);
             let shell = root.child().with(|| {
-                let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+                let _shell = view! {
+                    <AppShell>
+                        <p>"page"</p>
+                    </AppShell>
+                };
                 expect_context::<ShellState>().language
             });
             assert_eq!(beside, page, "a sibling of the shell");
@@ -1006,7 +1077,11 @@ mod tests {
     fn without_a_root_call_the_shell_provides_the_signal() {
         let root = Owner::new();
         root.with(|| {
-            let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let _shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
             let shell = expect_context::<ShellState>().language;
             let below = root.child().with(|| root.child().with(language_signal));
             assert_eq!(below, shell);
@@ -1058,7 +1133,12 @@ mod tests {
                 }],
                 "/".to_string(),
             );
-            view! { <AppShell nav=nav><p>"page"</p></AppShell> }.to_html()
+            view! {
+                <AppShell nav=nav>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
         });
         assert_eq!(
             html.matches(r#"href="/buttons""#).count(),
@@ -1179,10 +1259,8 @@ mod tests {
     #[test]
     fn the_footer_sits_in_the_page_column_beside_the_full_height_rail() {
         let html = Owner::new().with(|| {
-            view! {
-                <AppShell footer=|| view! { <footer id="f">"foot"</footer> }>"page"</AppShell>
-            }
-            .to_html()
+            view! { <AppShell footer=|| view! { <footer id="f">"foot"</footer> }>"page"</AppShell> }
+                .to_html()
         });
         let column = html
             .find(r#"<div class="flex min-h-screen flex-col""#)
@@ -1239,7 +1317,10 @@ mod tests {
         use crate::EnvBadgeInfo;
         let html = Owner::new().with(|| {
             view! {
-                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "a1b2c3f" }>
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: "main",
+                    sha: "a1b2c3f",
+                }>
                     <p>"page"</p>
                 </AppShell>
             }
@@ -1258,7 +1339,10 @@ mod tests {
         let long = "feat/a-very-long-branch-name-that-would-not-fit";
         let html = Owner::new().with(|| {
             view! {
-                <AppShell env_badge=EnvBadgeInfo { env: long, sha: "a1b2c3f" }>
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: long,
+                    sha: "a1b2c3f",
+                }>
                     <p>"page"</p>
                 </AppShell>
             }
@@ -1280,7 +1364,10 @@ mod tests {
                 .unwrap();
             provide_context(request.into_parts().0);
             view! {
-                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "abc1234" }>
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: "main",
+                    sha: "abc1234",
+                }>
                     <p>"page"</p>
                 </AppShell>
             }
@@ -1315,7 +1402,10 @@ mod tests {
         use crate::EnvBadgeInfo;
         let html = Owner::new().with(|| {
             view! {
-                <AppShell env_badge=EnvBadgeInfo { env: "dev", sha: "a1b2c3f" }>
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: "dev",
+                    sha: "a1b2c3f",
+                }>
                     <p>"page"</p>
                 </AppShell>
             }
@@ -1333,7 +1423,10 @@ mod tests {
         use crate::EnvBadgeInfo;
         let html = Owner::new().with(|| {
             view! {
-                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "a1b2c3f" }>
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: "main",
+                    sha: "a1b2c3f",
+                }>
                     <p>"page"</p>
                 </AppShell>
             }
@@ -1358,7 +1451,10 @@ mod tests {
         use crate::EnvBadgeInfo;
         let html = Owner::new().with(|| {
             view! {
-                <AppShell env_badge=EnvBadgeInfo { env: "main", sha: "a1b2c3f" }>
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: "main",
+                    sha: "a1b2c3f",
+                }>
                     <p>"page"</p>
                 </AppShell>
             }
@@ -1404,7 +1500,11 @@ mod tests {
     fn switching_the_language_keeps_the_one_settings_dialog() {
         use crate::focus_trap::fake::{self, settle};
         fake::run(async || {
-            let _shell = view! { <AppShell><p>"page"</p></AppShell> };
+            let _shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
             let state = expect_context::<ShellState>();
             settle().await;
             language_signal().set(Language::Fr);

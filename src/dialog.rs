@@ -63,8 +63,19 @@ pub fn Dialog<D: Disclosure>(
         <div class="fixed inset-0 z-50" hidden=move || !controls.is_open()>
             <Backdrop controls=controls dismissable=dismissable />
             <div class="relative z-10 flex h-full items-center justify-center sm:p-4">
-                <div id=controls.id() role="dialog" aria-modal="true" aria-labelledby=title_id class=panel_class>
-                    <Header title=title title_id=header_title_id controls=controls dismissable=dismissable />
+                <div
+                    id=controls.id()
+                    role="dialog"
+                    aria-modal="true"
+                    aria-labelledby=title_id
+                    class=panel_class
+                >
+                    <Header
+                        title=title
+                        title_id=header_title_id
+                        controls=controls
+                        dismissable=dismissable
+                    />
                     <div class="min-h-0 flex-1 overflow-y-auto px-5 py-4">{children()}</div>
                     {footer.map(|footer| view! { <Footer>{footer.run()}</Footer> })}
                 </div>
@@ -101,7 +112,9 @@ fn Header<D: Disclosure>(
 ) -> impl IntoView {
     view! {
         <div class="flex shrink-0 items-center justify-between gap-3 border-b border-line px-5 py-4">
-            <h2 id=title_id class="font-serif text-lg text-heading">{move || title.get()}</h2>
+            <h2 id=title_id class="font-serif text-lg text-heading">
+                {move || title.get()}
+            </h2>
             {dismissable.then(|| view! { <CloseButton controls=controls /> })}
         </div>
     }
@@ -177,7 +190,12 @@ mod tests {
     fn rendered(id: &'static str, open: bool) -> String {
         Owner::new().with(|| {
             let controls = Disclosed::new(id, RwSignal::new(open));
-            view! { <Dialog controls=controls title="Settings"><p>"body"</p></Dialog> }.to_html()
+            view! {
+                <Dialog controls=controls title="Settings">
+                    <p>"body"</p>
+                </Dialog>
+            }
+            .to_html()
         })
     }
 
@@ -219,7 +237,12 @@ mod tests {
             let html = Owner::new().with(|| {
                 language_signal().set(language);
                 let controls = Disclosed::new("pc-dialog-lang", RwSignal::new(true));
-                view! { <Dialog controls=controls title="T"><p>"body"</p></Dialog> }.to_html()
+                view! {
+                    <Dialog controls=controls title="T">
+                        <p>"body"</p>
+                    </Dialog>
+                }
+                .to_html()
             });
             let expected = format!(r#"aria-label="{name}""#);
             assert!(html.contains(&expected), "{language:?}: {html}");
@@ -241,7 +264,11 @@ mod tests {
             });
             // Built with one title, rendered after it changed: the same
             // dialog shows the new one, no rebuild needed.
-            let dialog = view! { <Dialog controls=controls title=title><p>"body"</p></Dialog> };
+            let dialog = view! {
+                <Dialog controls=controls title=title>
+                    <p>"body"</p>
+                </Dialog>
+            };
             french.set(true);
             dialog.to_html()
         });
@@ -254,7 +281,11 @@ mod tests {
         let html = Owner::new().with(|| {
             let controls = Disclosed::new("pc-dialog-live", RwSignal::new(true));
             // Built in English, rendered after the switch.
-            let dialog = view! { <Dialog controls=controls title="T"><p>"body"</p></Dialog> };
+            let dialog = view! {
+                <Dialog controls=controls title="T">
+                    <p>"body"</p>
+                </Dialog>
+            };
             language_signal().set(Language::Fr);
             dialog.to_html()
         });
@@ -287,7 +318,11 @@ mod tests {
         let controls = Disclosed::new("pc-dialog-footer", RwSignal::new(true));
         let with_footer = Owner::new().with(|| {
             view! {
-                <Dialog controls=controls title="Settings" footer=|| view! { <button>"Save"</button> }.into_any()>
+                <Dialog
+                    controls=controls
+                    title="Settings"
+                    footer=|| view! { <button>"Save"</button> }.into_any()
+                >
                     <p>"body"</p>
                 </Dialog>
             }
@@ -334,8 +369,12 @@ mod tests {
         let html = Owner::new().with(|| {
             view! {
                 <>
-                    <DialogSection title="Appearance"><p>"theme"</p></DialogSection>
-                    <DialogSection title="Language"><p>"lang"</p></DialogSection>
+                    <DialogSection title="Appearance">
+                        <p>"theme"</p>
+                    </DialogSection>
+                    <DialogSection title="Language">
+                        <p>"lang"</p>
+                    </DialogSection>
                 </>
             }
             .into_any()
