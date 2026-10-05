@@ -46,7 +46,14 @@ pub fn Popover<D: Disclosure>(
     });
     let class = format!("{PANEL} {layout}");
     view! {
-        <div node_ref=panel id=controls.id() role="dialog" aria-label=aria_label class=class hidden=move || !controls.is_open()>
+        <div
+            node_ref=panel
+            id=controls.id()
+            role="dialog"
+            aria-label=aria_label
+            class=class
+            hidden=move || !controls.is_open()
+        >
             {children()}
         </div>
     }
@@ -134,7 +141,12 @@ mod tests {
     fn hidden_while_closed_shown_while_open_and_named() {
         let closed = Owner::new().with(|| {
             let d = Disclosed::new("pc-settings", RwSignal::new(false));
-            view! { <Popover controls=d aria_label="Settings"><p>"content"</p></Popover> }.to_html()
+            view! {
+                <Popover controls=d aria_label="Settings">
+                    <p>"content"</p>
+                </Popover>
+            }
+            .to_html()
         });
         assert!(closed.contains("hidden"), "{closed}");
         assert!(closed.contains(r#"id="pc-settings""#), "{closed}");
@@ -143,7 +155,12 @@ mod tests {
 
         let open = Owner::new().with(|| {
             let d = Disclosed::new("pc-settings", RwSignal::new(true));
-            view! { <Popover controls=d aria_label="Settings"><p>"content"</p></Popover> }.to_html()
+            view! {
+                <Popover controls=d aria_label="Settings">
+                    <p>"content"</p>
+                </Popover>
+            }
+            .to_html()
         });
         assert!(!open.contains("hidden"), "{open}");
         assert!(open.contains("<p>content</p>"), "{open}");

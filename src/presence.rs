@@ -236,7 +236,11 @@ mod tests {
     fn the_wrapper_wears_its_motion_and_layout_classes() {
         let html = Owner::new().with(|| {
             view! {
-                <Presence show=Signal::derive(|| true) motion=Motion::Slide(Edge::Top) layout="w-64">
+                <Presence
+                    show=Signal::derive(|| true)
+                    motion=Motion::Slide(Edge::Top)
+                    layout="w-64"
+                >
                     <p>"x"</p>
                 </Presence>
             }
@@ -250,7 +254,11 @@ mod tests {
     fn cut_does_not_affect_an_open_first_render() {
         let html = Owner::new().with(|| {
             view! {
-                <Presence show=Signal::derive(|| true) motion=Motion::Scale cut=Signal::derive(|| true)>
+                <Presence
+                    show=Signal::derive(|| true)
+                    motion=Motion::Scale
+                    cut=Signal::derive(|| true)
+                >
                     <p>"x"</p>
                 </Presence>
             }

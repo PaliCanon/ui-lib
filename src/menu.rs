@@ -104,8 +104,7 @@ pub(crate) fn item_row(
 ) -> impl IntoView {
     view! {
         <span class="flex flex-1 items-center gap-3">
-            {icon.map(|name| view! { <Icon name=name /> })}
-            <span>{label}</span>
+            {icon.map(|name| view! { <Icon name=name /> })} <span>{label}</span>
         </span>
         {right}
     }
@@ -182,7 +181,15 @@ fn MenuLevel(
                 .into_iter()
                 .enumerate()
                 .map(|(index, item)| {
-                    view! { <DesktopItem item=item path=path depth=depth index=index close_all=close_all /> }
+                    view! {
+                        <DesktopItem
+                            item=item
+                            path=path
+                            depth=depth
+                            index=index
+                            close_all=close_all
+                        />
+                    }
                 })
                 .collect_view()}
         </div>
@@ -339,7 +346,11 @@ fn DesktopItem(
     close_all: Callback<()>,
 ) -> impl IntoView {
     let open = Signal::derive(move || path.get().get(depth) == Some(&index));
-    view! { <div class="relative">{desktop_item_content(item, path, depth, index, open, close_all)}</div> }
+    view! {
+        <div class="relative">
+            {desktop_item_content(item, path, depth, index, open, close_all)}
+        </div>
+    }
 }
 
 /// The content of one [`DesktopItem`]: the row itself, and, for a

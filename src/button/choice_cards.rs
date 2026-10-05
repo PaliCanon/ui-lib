@@ -58,7 +58,9 @@ where
         >
             {options
                 .into_iter()
-                .map(|option| view! { <ChoiceCard option=option value=value on_change=on_change /> })
+                .map(|option| {
+                    view! { <ChoiceCard option=option value=value on_change=on_change /> }
+                })
                 .collect_view()}
         </div>
     }
@@ -86,12 +88,14 @@ where
             type="button"
             role="radio"
             class="flex w-18 shrink-0 flex-col items-center gap-1.5 rounded-xl p-1 text-center \
-                   focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
+            focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold"
             aria-checked=move || checked.get().to_string()
             tabindex=move || if checked.get() { "0" } else { "-1" }
             on:click=move |_| on_change.run(option_value)
         >
-            <span class=move || frame_class(checked.get())>
+            <span class=move || frame_class(
+                checked.get(),
+            )>
                 {picture.run()}
                 <span
                     class="absolute top-1 right-1 flex size-4 items-center justify-center rounded-full bg-gold text-on-gold"
@@ -101,9 +105,7 @@ where
                     <Icon name=IconName::Check size=11 />
                 </span>
             </span>
-            <span class=move || label_class(checked.get())>
-                {label}
-            </span>
+            <span class=move || label_class(checked.get())>{label}</span>
         </button>
     }
 }

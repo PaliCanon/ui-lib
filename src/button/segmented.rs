@@ -34,7 +34,11 @@ where
     T: Copy + PartialEq + Send + Sync + 'static,
 {
     view! {
-        <div role="radiogroup" aria-label=aria_label class="inline-flex gap-1 rounded-full border border-line bg-chip p-1">
+        <div
+            role="radiogroup"
+            aria-label=aria_label
+            class="inline-flex gap-1 rounded-full border border-line bg-chip p-1"
+        >
             {options
                 .into_iter()
                 .map(|SegmentedOption { label, value: option }| {

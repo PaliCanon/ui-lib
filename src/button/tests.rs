@@ -7,8 +7,12 @@ fn html(view: impl FnOnce() -> AnyView) -> String {
 #[test]
 fn a_button_runs_an_action_and_is_named() {
     let out = html(|| {
-        view! { <Button variant=Variant::Icon label="Close" on_click=|_| ()>"×"</Button> }
-            .into_any()
+        view! {
+            <Button variant=Variant::Icon label="Close" on_click=|_| ()>
+                "×"
+            </Button>
+        }
+        .into_any()
     });
     assert!(out.contains(r#"type="button""#), "{out}");
     assert!(out.contains(r#"aria-label="Close""#), "{out}");
@@ -19,8 +23,12 @@ fn a_button_runs_an_action_and_is_named() {
 #[test]
 fn a_disabled_button_says_so() {
     let out = html(|| {
-        view! { <Button disabled=Signal::derive(|| true) on_click=|_| ()>"Send"</Button> }
-            .into_any()
+        view! {
+            <Button disabled=Signal::derive(|| true) on_click=|_| ()>
+                "Send"
+            </Button>
+        }
+        .into_any()
     });
     assert!(out.contains("disabled"), "{out}");
 }
@@ -30,7 +38,9 @@ fn a_disclosure_button_names_and_follows_what_it_controls() {
     let out = html(|| {
         let d = Disclosed::new("pc-rail", RwSignal::new(true));
         view! {
-            <DisclosureButton controls=d label_closed="Open" label_open="Close">"x"</DisclosureButton>
+            <DisclosureButton controls=d label_closed="Open" label_open="Close">
+                "x"
+            </DisclosureButton>
         }
         .into_any()
     });
@@ -51,7 +61,9 @@ fn a_toggle_button_is_pressed_or_not() {
 fn a_radio_button_says_checked_and_is_named() {
     let out = html(|| {
         view! {
-            <RadioButton checked=true label="Light" on_select=|_| ()>"Light"</RadioButton>
+            <RadioButton checked=true label="Light" on_select=|_| ()>
+                "Light"
+            </RadioButton>
         }
         .into_any()
     });
@@ -59,7 +71,12 @@ fn a_radio_button_says_checked_and_is_named() {
     assert!(out.contains(r#"aria-checked="true""#), "{out}");
     assert!(out.contains(r#"aria-label="Light""#), "{out}");
     let unchecked = html(|| {
-        view! { <RadioButton checked=false on_select=|_| ()>"Dark"</RadioButton> }.into_any()
+        view! {
+            <RadioButton checked=false on_select=|_| ()>
+                "Dark"
+            </RadioButton>
+        }
+        .into_any()
     });
     assert!(unchecked.contains(r#"aria-checked="false""#), "{unchecked}");
 }
@@ -67,8 +84,12 @@ fn a_radio_button_says_checked_and_is_named() {
 #[test]
 fn a_link_button_is_a_real_link_marked_current() {
     let current = html(|| {
-        view! { <LinkButton href="https://palicanon.app" current=true>"Search"</LinkButton> }
-            .into_any()
+        view! {
+            <LinkButton href="https://palicanon.app" current=true>
+                "Search"
+            </LinkButton>
+        }
+        .into_any()
     });
     assert!(current.starts_with("<a"), "{current}");
     assert!(

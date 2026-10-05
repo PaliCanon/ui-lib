@@ -77,7 +77,9 @@ pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> im
                     {section
                         .entries
                         .into_iter()
-                        .map(|entry| view! { <Entry entry=entry current=current size=Size::Md shown=open /> })
+                        .map(|entry| {
+                            view! { <Entry entry=entry current=current size=Size::Md shown=open /> }
+                        })
                         .collect_view()}
                 }
             })
@@ -101,7 +103,16 @@ pub(crate) fn MobileSections(nav: NavList) -> impl IntoView {
                     {section
                         .entries
                         .into_iter()
-                        .map(|entry| view! { <Entry entry=entry current=current size=Size::Lg shown=Signal::derive(|| true) /> })
+                        .map(|entry| {
+                            view! {
+                                <Entry
+                                    entry=entry
+                                    current=current
+                                    size=Size::Lg
+                                    shown=Signal::derive(|| true)
+                                />
+                            }
+                        })
                         .collect_view()}
                 }
             })

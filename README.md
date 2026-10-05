@@ -53,6 +53,7 @@ another way (`ui-lab`'s task 032, "Forks for later").
 # Toolchain with the wasm32 target, isolated from the system Rust:
 export RUSTUP_HOME=$HOME/.rustup-pc/rustup CARGO_HOME=$HOME/.rustup-pc/cargo PATH=$HOME/.rustup-pc/cargo/bin:$PATH RUSTC_WRAPPER=sccache
 cargo fmt --check
+leptosfmt --check .    # the view! macros (cargo install leptosfmt --locked)
 cargo clippy --features ssr --all-targets -- -D warnings
 cargo clippy --features hydrate --target wasm32-unknown-unknown --all-targets -- -D warnings
 cargo test --features ssr
