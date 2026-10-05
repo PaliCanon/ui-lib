@@ -44,6 +44,11 @@
 //!   on a phone stacked and centred, from `sm` a 1fr/auto/1fr grid — the
 //!   links centred on the full width, the credits at the right edge; no
 //!   credits, no block. It owns only the layout and its own nav label.
+//! - [`search`] — the search forms: [`search::SearchCard`], the home's large
+//!   card (the field, the caller's controls and a round submit), and
+//!   [`search::SearchRow`], a results page's one-line bar (an icon, the
+//!   field, a gold submit); plain GET forms, ids unique per page, the
+//!   row's `form_id` required.
 
 pub mod button;
 mod catalogue;
@@ -60,6 +65,7 @@ pub mod nav;
 pub mod persisted;
 pub mod popover;
 pub mod presence;
+pub mod search;
 pub mod shell;
 pub mod theme;
 mod viewport;
@@ -85,5 +91,6 @@ pub use nav::{NavEntry, NavList, NavSection};
 pub use persisted::persisted;
 pub use popover::Popover;
 pub use presence::Presence;
+pub use search::{SearchCard, SearchRow};
 pub use shell::{AppShell, ShellState};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};
