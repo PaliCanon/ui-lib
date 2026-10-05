@@ -50,56 +50,74 @@ pub fn Footer(
     #[prop(optional, into)]
     leading: Option<ViewFn>,
 ) -> impl IntoView {
-    let t = strings();
     view! {
         <footer class="border-t border-line">
             <div class="flex w-full flex-col items-center gap-4 px-6 py-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-start">
                 {leading
-                    .map(|leading| {
-                        view! {
-                            <div class="text-[13px] text-subtle sm:col-start-1 sm:justify-self-start">
-                                {leading.run()}
-                            </div>
-                        }
+                    .map(|l| {
+                        view! { <FooterLeading leading=l /> }
                     })}
                 {(!links.is_empty())
                     .then(|| {
-                        view! {
-                            <nav
-                                aria-label=move || td_string!(t.locale(), footer_navigation)
-                                class="flex flex-wrap justify-center gap-x-3 gap-y-2 sm:col-start-2 sm:gap-x-10"
-                            >
-                                {links
-                                    .into_iter()
-                                    .map(|link| {
-                                        view! {
-                                            <a
-                                                href=link.href
-                                                class="text-[13px] text-muted transition hover:text-gold-text sm:text-sm"
-                                            >
-                                                {link.label}
-                                            </a>
-                                        }
-                                    })
-                                    .collect_view()}
-                            </nav>
-                        }
+                        view! { <FooterNav links=links /> }
                     })}
                 {(!credits.is_empty())
                     .then(|| {
-                        view! {
-                            <ul class="list-none m-0 p-0 text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
-                                {credits
-                                    .into_iter()
-                                    .map(|line| {
-                                        view! { <li>{line}</li> }
-                                    })
-                                    .collect_view()}
-                            </ul>
-                        }
+                        view! { <FooterCredits credits=credits /> }
                     })}
             </div>
         </footer>
+    }
+}
+
+/// Renders the optional leading content (build badge, version) at the footer's left.
+#[component]
+fn FooterLeading(#[prop(into)] leading: ViewFn) -> impl IntoView {
+    view! {
+        <div class="text-[13px] text-subtle sm:col-start-1 sm:justify-self-start">
+            {leading.run()}
+        </div>
+    }
+}
+
+/// Renders the navigation section with links.
+#[component]
+fn FooterNav(#[prop(into)] links: Vec<FooterLink>) -> impl IntoView {
+    let t = strings();
+    view! {
+        <nav
+            aria-label=move || td_string!(t.locale(), footer_navigation)
+            class="flex flex-wrap justify-center gap-x-3 gap-y-2 sm:col-start-2 sm:gap-x-10"
+        >
+            {links
+                .into_iter()
+                .map(|link| {
+                    view! {
+                        <a
+                            href=link.href
+                            class="text-[13px] text-muted transition hover:text-gold-text sm:text-sm"
+                        >
+                            {link.label}
+                        </a>
+                    }
+                })
+                .collect_view()}
+        </nav>
+    }
+}
+
+/// Renders the credits section as a list of lines.
+#[component]
+fn FooterCredits(#[prop(into)] credits: Vec<&'static str>) -> impl IntoView {
+    view! {
+        <ul class="list-none m-0 p-0 text-center text-[13px] leading-5 text-subtle sm:col-start-3 sm:justify-self-end">
+            {credits
+                .into_iter()
+                .map(|line| {
+                    view! { <li>{line}</li> }
+                })
+                .collect_view()}
+        </ul>
     }
 }
 
