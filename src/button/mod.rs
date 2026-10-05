@@ -12,6 +12,9 @@
 //! | [`ChoiceCards`] | a row of picture cards for one value out of a few | `role="radiogroup"` |
 //!
 //! [`Variant::Nav`] is the look of a navigation list's entries ([`crate::nav`]).
+//! [`Variant::Tile`] is a box of stacked content (a counter cell, a link or
+//! a plain surface); its resting look, `TILE_SURFACE`, is shared with the
+//! plain cells of [`crate::bucket_strip`].
 
 mod choice_cards;
 mod disclosure;
@@ -27,6 +30,7 @@ pub(crate) use choice_cards::tests as choice_cards_test;
 pub use choice_cards::{ChoiceCardOption, ChoiceCards};
 pub use disclosure::{Disclosed, Disclosure};
 pub use segmented::{Segmented, SegmentedOption};
+pub(crate) use style::TILE_SURFACE;
 pub use style::{Size, Variant, classes};
 
 fn is_disabled(disabled: Option<Signal<bool>>) -> bool {

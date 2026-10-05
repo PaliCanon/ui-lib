@@ -49,7 +49,18 @@
 //!   [`search::SearchRow`], a results page's one-line bar (an icon, the
 //!   field, a gold submit); plain GET forms, ids unique per page, the
 //!   row's `form_id` required.
+//! - [`pali`] — [`pali::Pali`], a Pāli text: `lang="pi"`, the serif face and
+//!   a line height that never clips the diacritics, in three sizes.
+//! - [`reveal_card`] — [`reveal_card::RevealCard`], a card with a front, a
+//!   reveal shown in place and actions pinned at the bottom; Space and Enter
+//!   reveal it, and a new key resets it in the same tick.
+//! - [`bucket_strip`] — [`bucket_strip::BucketStrip`], n labelled counts in a
+//!   row (three columns on a phone), each cell a plain box or a link on
+//!   [`button::Variant::Tile`].
+//! - [`session_header`] — [`session_header::SessionHeader`], a counter
+//!   ("3 / 10 cards") and a close button; the dialog is the caller's.
 
+pub mod bucket_strip;
 pub mod button;
 mod catalogue;
 pub mod dialog;
@@ -62,10 +73,13 @@ mod language_menu;
 pub mod menu;
 pub mod motion;
 pub mod nav;
+pub mod pali;
 pub mod persisted;
 pub mod popover;
 pub mod presence;
+pub mod reveal_card;
 pub mod search;
+pub mod session_header;
 pub mod shell;
 pub mod theme;
 mod viewport;
@@ -76,6 +90,7 @@ mod viewport;
 #[path = "../build/placeholders.rs"]
 mod placeholders;
 
+pub use bucket_strip::{Bucket, BucketStrip};
 pub use button::{
     Button, ChoiceCardOption, ChoiceCards, Disclosed, Disclosure, DisclosureButton, LinkButton,
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
@@ -88,9 +103,12 @@ pub use language::{Language, language_attribute, language_signal, provide_langua
 pub use menu::{DrillMenu, Menu, MenuItem};
 pub use motion::{Edge, Motion};
 pub use nav::{NavEntry, NavList, NavSection};
+pub use pali::{Pali, PaliSize};
 pub use persisted::persisted;
 pub use popover::Popover;
 pub use presence::Presence;
+pub use reveal_card::RevealCard;
 pub use search::{SearchCard, SearchRow};
+pub use session_header::SessionHeader;
 pub use shell::{AppShell, ShellState};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};

@@ -20,6 +20,8 @@ pub enum Variant {
     /// An entry of a navigation list: icon then label, full width, marked
     /// when it leads to the page being shown.
     Nav,
+    /// A box of stacked content: a counter cell, a link or a plain surface.
+    Tile,
 }
 
 /// How big a button is. `Md` is the default and the smallest comfortable
@@ -40,8 +42,27 @@ const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center
     font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 \
     focus-visible:outline-gold disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40";
 
+/// The resting classes of a tile as a literal, so that [`TILE_SURFACE`] and
+/// the variant's arm (`concat!` takes literals, not constants) share one text.
+macro_rules! tile_surface {
+    () => {
+        "flex-col items-center justify-center gap-2 rounded-xl border border-line bg-chip px-3 py-2 text-center"
+    };
+}
+
+/// The resting look of a [`Variant::Tile`], with no state in it: a plain
+/// `<div>` cell uses it alone (adding `flex`, which `BASE`'s `inline-flex`
+/// stands for on a link), a link gets it through the variant. `items-center`
+/// and `gap-2` repeat `BASE` on purpose, with the same values, so the
+/// plain cell spaces its content like the link.
+pub(crate) const TILE_SURFACE: &str = tile_surface!();
+
 fn variant_classes(variant: Variant) -> &'static str {
     match variant {
+        Variant::Tile => concat!(
+            tile_surface!(),
+            " hover:border-gold/60 active:bg-chip-hover"
+        ),
         Variant::Icon => {
             "justify-center rounded-xl border border-transparent text-muted hover:border-gold/60 hover:bg-chip \
              hover:text-heading active:bg-chip-hover aria-expanded:bg-gold/15 aria-expanded:text-heading \
@@ -82,6 +103,10 @@ fn size_classes(variant: Variant, size: Size) -> &'static str {
         (Variant::Nav, Size::Sm) => "h-8 gap-3 px-[7px] text-[13px]",
         (Variant::Nav, Size::Md) => "h-11 gap-3 px-[13px] text-sm",
         (Variant::Nav, Size::Lg) => "h-13 gap-4 px-4 text-base",
+        // Taller than the label needs when the content stacks: a minimum, not a height.
+        (Variant::Tile, Size::Sm) => "min-h-8",
+        (Variant::Tile, Size::Md) => "min-h-11",
+        (Variant::Tile, Size::Lg) => "min-h-13",
         (_, Size::Sm) => "h-8 px-3 text-[13px]",
         (_, Size::Md) => "h-11 px-4 text-sm",
         (_, Size::Lg) => "h-13 px-5 text-[15px]",
@@ -108,13 +133,14 @@ pub fn classes(variant: Variant, size: Size, layout: &str) -> String {
 mod tests {
     use super::*;
 
-    const ALL: [Variant; 6] = [
+    const ALL: [Variant; 7] = [
         Variant::Icon,
         Variant::Chip,
         Variant::Primary,
         Variant::Accent,
         Variant::Ghost,
         Variant::Nav,
+        Variant::Tile,
     ];
 
     #[test]
@@ -205,6 +231,91 @@ mod tests {
         let c = classes(Variant::Ghost, Size::Md, "");
         assert!(c.contains("text-gold-text"), "{c}");
         assert!(!c.contains(" text-gold "), "{c}");
+    }
+
+    fn tokens(classes: &str) -> Vec<&str> {
+        classes.split_whitespace().collect()
+    }
+
+    #[test]
+    fn tile_defines_every_state() {
+        let c = classes(Variant::Tile, Size::Md, "");
+        for state in [
+            "hover:border-gold/60",
+            "active:bg-chip-hover",
+            "disabled:opacity-40",
+            "focus-visible:outline-gold",
+        ] {
+            assert!(c.contains(state), "{state} in {c}");
+        }
+    }
+
+    #[test]
+    fn tile_is_a_stacked_centred_box() {
+        let c = classes(Variant::Tile, Size::Md, "");
+        let t = tokens(&c);
+        for class in [
+            "flex-col",
+            "items-center",
+            "justify-center",
+            "text-center",
+            "rounded-xl",
+            "border",
+            "border-line",
+            "bg-chip",
+        ] {
+            assert!(t.contains(&class), "{class} in {c}");
+        }
+        assert!(!t.contains(&"justify-start"), "{c}");
+    }
+
+    #[test]
+    fn tile_extends_the_resting_surface() {
+        assert!(TILE_SURFACE.contains("rounded-xl border border-line bg-chip"));
+        assert!(variant_classes(Variant::Tile).starts_with(TILE_SURFACE));
+    }
+
+    #[test]
+    fn the_resting_surface_has_no_state() {
+        assert!(TILE_SURFACE.contains("flex-col"), "{TILE_SURFACE}");
+        for state in [
+            "hover:",
+            "active:",
+            "focus-visible:",
+            "disabled:",
+            "aria-",
+            "cursor-pointer",
+        ] {
+            assert!(!TILE_SURFACE.contains(state), "{state} in {TILE_SURFACE}");
+        }
+    }
+
+    #[test]
+    fn tile_sizes_are_its_own() {
+        // The wildcard arm of `size_classes` would give a Tile `h-11 px-4`
+        // without a compile error: this is the only guard.
+        for (size, min) in [
+            (Size::Sm, "min-h-8"),
+            (Size::Md, "min-h-11"),
+            (Size::Lg, "min-h-13"),
+        ] {
+            let c = classes(Variant::Tile, size, "");
+            assert!(tokens(&c).contains(&min), "{min} in {c}");
+            assert!(
+                !c.contains("h-11 px-4") && !c.contains(" h-8 ") && !c.contains(" h-13 "),
+                "{c}"
+            );
+        }
+    }
+
+    #[test]
+    fn tile_adds_no_second_display_to_the_base() {
+        // `BASE` is `inline-flex`: a bare `flex` on the same element would be
+        // two utilities for one property. A plain cell adds `flex` itself.
+        let c = classes(Variant::Tile, Size::Md, "");
+        assert!(tokens(&c).contains(&"inline-flex"), "{c}");
+        assert!(!tokens(&c).contains(&"flex"), "{c}");
+        assert!(!tokens(TILE_SURFACE).contains(&"flex"), "{TILE_SURFACE}");
     }
 
     #[test]
