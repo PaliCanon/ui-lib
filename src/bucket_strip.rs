@@ -2,7 +2,8 @@
 //!
 //! The strip is generic: it knows neither "stage" nor "term", only labelled
 //! counts. Phone: a grid of three columns (two rows of three for six cells);
-//! from `sm:` up, one row, every cell the same width. A cell with a target
+//! from `sm:` up, one row, every cell the same width — or, with
+//! [`Columns::Three`], the grid of three at every width. A cell with a target
 //! is a real link (new tab, middle click) on the [`Variant::Tile`] look; one
 //! without is a plain box with the tile's resting surface and no state, since
 //! it does nothing. In the DOM the label comes before the count (a screen
@@ -16,6 +17,34 @@
 use leptos::prelude::*;
 
 use crate::button::{LinkButton, Size, TILE_SURFACE, Variant, classes, tile_spacing};
+
+/// How a [`BucketStrip`] lays its cells out.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Columns {
+    /// Three columns on a phone, one row of equal cells from `sm:` up.
+    #[default]
+    Auto,
+    /// Three columns at every width (two rows of three for six cells).
+    Three,
+}
+
+impl Columns {
+    /// The list's classes: a grid of three, a row from `sm:` up for `Auto`.
+    fn list_classes(self) -> &'static str {
+        match self {
+            Self::Auto => "grid grid-cols-3 gap-2 sm:flex sm:gap-3",
+            Self::Three => "grid grid-cols-3 gap-2 sm:gap-3",
+        }
+    }
+
+    /// A cell's item classes: equal widths in the `Auto` row, none in a grid.
+    fn item_classes(self) -> Option<&'static str> {
+        match self {
+            Self::Auto => Some("sm:flex-1"),
+            Self::Three => None,
+        }
+    }
+}
 
 /// One cell of a [`BucketStrip`]: a label, a count and, optionally, where the
 /// cell leads.
@@ -43,6 +72,10 @@ pub fn BucketStrip(
     /// The cells' size: Md by default; Sm is compact (a smaller count and label); Lg draws an Lg box with the Md body.
     #[prop(optional)]
     size: Size,
+    /// The layout: [`Columns::Auto`] by default (a row from `sm:` up);
+    /// [`Columns::Three`] keeps three columns at every width.
+    #[prop(optional)]
+    columns: Columns,
     /// Called with the cell's index when a cell is pressed; given, every cell is a button and the cells' `to` are ignored.
     ///
     /// Selection is by index, so it follows the cells' order.
@@ -53,6 +86,7 @@ pub fn BucketStrip(
     #[prop(optional, into)]
     selected: Option<Signal<Option<usize>>>,
 ) -> impl IntoView {
+    let (list_class, item_class) = (columns.list_classes(), columns.item_classes());
     (!cells.is_empty()).then(|| {
         view! {
             <section>
@@ -60,13 +94,13 @@ pub fn BucketStrip(
                     .map(|h| {
                         view! { <h2 class="mb-2 text-sm font-medium text-muted">{h}</h2> }
                     })}
-                <ul class="grid grid-cols-3 gap-2 sm:flex sm:gap-3">
+                <ul class=list_class>
                     {cells
                         .into_iter()
                         .enumerate()
                         .map(|(index, cell)| {
                             view! {
-                                <li class="sm:flex-1">
+                                <li class=item_class>
                                     <Cell
                                         cell=cell
                                         size=size
@@ -381,6 +415,31 @@ mod tests {
             assert!(ul.split(['"', ' ']).any(|t| t == class), "{class} in {ul}");
         }
         assert_eq!(html.matches(r#"class="sm:flex-1""#).count(), 2, "{html}");
+    }
+
+    #[test]
+    fn three_columns_stay_a_grid_of_three_at_every_width() {
+        let cells = vec![bucket("A", 1, None), bucket("B", 2, None)];
+        let html = Owner::new()
+            .with(|| view! { <BucketStrip cells=cells columns=Columns::Three /> }.to_html());
+        let ul = tag_around(&html, "<ul");
+        let tokens: Vec<&str> = ul.split(['"', ' ']).collect();
+        for class in ["grid", "grid-cols-3", "gap-2", "sm:gap-3"] {
+            assert!(tokens.contains(&class), "{class} in {ul}");
+        }
+        assert!(!tokens.contains(&"sm:flex"), "{ul}");
+        assert!(!html.contains("sm:flex-1"), "{html}");
+        assert_eq!(html.matches("<li").count(), 2, "{html}");
+    }
+
+    #[test]
+    fn the_default_columns_are_auto() {
+        assert_eq!(Columns::default(), Columns::Auto);
+        let cells = vec![bucket("A", 1, None)];
+        let html = Owner::new()
+            .with(|| view! { <BucketStrip cells=cells columns=Columns::Auto /> }.to_html());
+        assert!(tag_around(&html, "<ul").contains("sm:flex"), "{html}");
+        assert!(html.contains(r#"class="sm:flex-1""#), "{html}");
     }
 
     #[test]

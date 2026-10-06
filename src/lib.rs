@@ -94,7 +94,7 @@ mod viewport;
 #[path = "../build/placeholders.rs"]
 mod placeholders;
 
-pub use bucket_strip::{Bucket, BucketStrip};
+pub use bucket_strip::{Bucket, BucketStrip, Columns};
 pub use button::{
     Button, ChoiceCardOption, ChoiceCards, Disclosed, Disclosure, DisclosureButton, LinkButton,
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
