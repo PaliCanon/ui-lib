@@ -138,6 +138,10 @@ pub fn AppShell(
     /// still wants the theme choice adds that section back itself.
     #[prop(optional, into)]
     settings: Option<ViewFn>,
+    /// Sections added after the default Appearance section (each a
+    /// [`DialogSection`]); ignored when `settings` replaces the content.
+    #[prop(optional, into)]
+    settings_extra: Option<ViewFn>,
     /// Which build is running, shown at the rail bottom (desktop) and in
     /// the top bar (mobile); none by default.
     #[prop(optional)]
@@ -154,9 +158,8 @@ pub fn AppShell(
     close_on_escape(state);
     apply_theme(state.theme);
     apply_language(state.language);
-    let settings = settings.unwrap_or_else(default_settings);
     view! {
-        <SettingsDialog settings=settings />
+        <SettingsDialog settings=settings settings_extra=settings_extra />
         // One column at least a screen tall: the top bar (phone), then the
         // row — the rail first, the full height of the page; beside it the
         // page column, its footer at the bottom. A short page is one screen,
@@ -193,41 +196,31 @@ fn rail_width(open: bool) -> &'static str {
     if open { RAIL_OPEN } else { RAIL_CLOSED }
 }
 
-/// The default of `AppShell`'s `settings`: one Appearance section, the
-/// theme as a [`ThemePicker`]. `ThemePicker` reads [`theme::theme_signal`]
-/// itself (the very same instance `AppShell` already provided as
-/// `ShellState::theme`, through context), so nothing needs threading here.
-/// The section re-renders itself when the language changes (its title is
-/// a plain string); the dialog around it stays mounted.
-fn default_settings() -> ViewFn {
-    (move || {
-        let t = strings();
-        (move || {
-            view! {
-                <DialogSection title=td_string!(t.locale(), appearance)>
-                    <ThemePicker />
-                </DialogSection>
-            }
-        })
-        .into_any()
-    })
-    .into()
-}
-
 /// The Settings dialog, opened by both the desktop gear and the mobile row
 /// through the same shared `ShellState::settings_open`. Built once, with
 /// the shell: its title follows the language in place. Rebuilding it on a
 /// switch would install one more Escape listener and focus manager each
 /// time (window listeners outlive the view they came from).
 #[component]
-fn SettingsDialog(settings: ViewFn) -> impl IntoView {
+fn SettingsDialog(settings: Option<ViewFn>, settings_extra: Option<ViewFn>) -> impl IntoView {
     let state = expect_context::<ShellState>();
     let controls = Disclosed::new("pc-settings", state.settings_open);
     let t = strings();
     let title = Signal::derive(move || td_string!(t.locale(), settings).to_owned());
     view! {
         <Dialog controls=controls title=title>
-            {settings.run()}
+            {match settings {
+                Some(settings) => settings.run(),
+                None => {
+                    view! {
+                        <DialogSection title=td_string!(t.locale(), appearance)>
+                            <ThemePicker />
+                        </DialogSection>
+                        {settings_extra.map(|extra| extra.run())}
+                    }
+                        .into_any()
+                }
+            }}
         </Dialog>
     }
 }
@@ -1519,5 +1512,87 @@ mod tests {
             settle().await;
             assert_eq!(fake::moves().focus_into, ["pc-settings"]);
         });
+    }
+
+    #[test]
+    fn settings_extra_renders_after_appearance() {
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell settings_extra=|| {
+                    view! {
+                        <DialogSection title="Extra">
+                            <p>"Extra content"</p>
+                        </DialogSection>
+                    }
+                        .into_any()
+                }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        let appearance_pos = html
+            .find("Appearance")
+            .expect("Appearance section not found");
+        let extra_pos = html.find("Extra").expect("Extra section not found");
+        assert!(
+            appearance_pos < extra_pos,
+            "Appearance should come before Extra"
+        );
+        assert!(
+            html.contains("Extra content"),
+            "Extra section content not found"
+        );
+    }
+
+    #[test]
+    fn without_settings_extra_unchanged() {
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        assert!(html.contains("Appearance"), "{html}");
+        assert!(
+            !html.contains("Extra"),
+            "Extra section should not be present"
+        );
+    }
+
+    #[test]
+    fn settings_overrides_both_appearance_and_settings_extra() {
+        let html = Owner::new().with(|| {
+            view! {
+                <AppShell
+                    settings=|| view! { <p>"Custom settings"</p> }.into_any()
+                    settings_extra=|| {
+                        view! {
+                            <DialogSection title="Extra">
+                                <p>"Extra content"</p>
+                            </DialogSection>
+                        }
+                            .into_any()
+                    }
+                >
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        assert!(
+            html.contains("Custom settings"),
+            "Custom settings content should be present"
+        );
+        assert!(
+            !html.contains("Appearance"),
+            "Appearance should not be present when settings overridden"
+        );
+        assert!(
+            !html.contains("Extra"),
+            "settings_extra should be ignored when settings is provided"
+        );
     }
 }
