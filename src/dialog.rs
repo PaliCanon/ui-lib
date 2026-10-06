@@ -153,11 +153,14 @@ fn Footer(children: Children) -> impl IntoView {
 fn close_on_escape<D: Disclosure>(controls: D, dismissable: bool) {
     #[cfg(feature = "hydrate")]
     {
-        let _ = window_event_listener(leptos::ev::keydown, move |ev| {
+        let handle = window_event_listener(leptos::ev::keydown, move |ev| {
             if dismissable && controls.is_open() && ev.key() == "Escape" {
                 controls.set_open(false);
             }
         });
+        // Ends with the dialog's owner: an unmounted dialog must not keep
+        // reading its (disposed) `controls` on every Escape.
+        on_cleanup(move || handle.remove());
     }
     #[cfg(not(feature = "hydrate"))]
     let _ = (controls, dismissable);
@@ -434,6 +437,23 @@ mod one_open_tests {
             settle().await;
             assert!(!first.get_untracked(), "the first is replaced");
             assert!(second.get_untracked(), "the second opens");
+        });
+    }
+
+    #[test]
+    fn a_disposed_non_dismissable_dialog_no_longer_refuses_another() {
+        fake::run(async || {
+            let owner = Owner::new();
+            let confirm = owner.with(|| dialog("pc-confirm", false));
+            let settings = dialog("pc-settings", true);
+            settle().await;
+            confirm.set(true);
+            settle().await;
+            owner.cleanup();
+            settle().await;
+            settings.set(true);
+            settle().await;
+            assert!(settings.get_untracked(), "Settings opens: no stale entry");
         });
     }
 }

@@ -4,6 +4,11 @@
 use leptos::prelude::*;
 
 /// Opens and closes an element whose id is [`Disclosure::id`].
+///
+/// An implementation over a reactive value must read and write it with
+/// `try_get` / `try_set` (as [`Disclosed`] does): window listeners and
+/// stored closures may outlive the owner of the value, and a plain `get`
+/// on a disposed signal panics.
 pub trait Disclosure: Copy + Send + Sync + 'static {
     /// The id of the element shown and hidden.
     fn id(&self) -> &'static str;
@@ -42,11 +47,14 @@ impl Disclosure for Disclosed {
     fn id(&self) -> &'static str {
         self.id
     }
+    /// Tracked like any read. A flag whose owner is gone reads closed
+    /// instead of panicking: a listener that outlives its component (or a
+    /// flag owned by a view that unmounted first) must not abort the app.
     fn is_open(&self) -> bool {
-        self.open.get()
+        self.open.try_get().unwrap_or(false)
     }
     fn set_open(&self, open: bool) {
-        self.open.set(open);
+        let _ = self.open.try_set(open);
     }
 }
 
@@ -66,5 +74,16 @@ mod tests {
             d.set_open(false);
             assert!(!d.is_open());
         });
+    }
+
+    #[test]
+    fn a_disposed_flag_reads_closed_and_ignores_writes() {
+        let owner = Owner::new();
+        let d = owner.with(|| Disclosed::new("pc-gone", RwSignal::new(true)));
+        owner.cleanup();
+        assert!(!d.is_open(), "a disposed flag reads closed, no panic");
+        d.set_open(true);
+        d.toggle();
+        assert!(!d.is_open());
     }
 }

@@ -237,11 +237,15 @@ fn SettingsDialog(settings: ViewFn) -> impl IntoView {
 /// only: there is no window while the server renders.
 fn close_on_escape(state: ShellState) {
     #[cfg(feature = "hydrate")]
-    let _ = window_event_listener(leptos::ev::keydown, move |ev| {
-        if ev.key() == "Escape" {
-            escape(state);
-        }
-    });
+    {
+        let handle = window_event_listener(leptos::ev::keydown, move |ev| {
+            if ev.key() == "Escape" {
+                escape(state);
+            }
+        });
+        // Ends with the shell's owner.
+        on_cleanup(move || handle.remove());
+    }
     #[cfg(not(feature = "hydrate"))]
     let _ = state;
 }

@@ -54,10 +54,19 @@ pub fn manage<D: Disclosure>(controls: D, dismissable: bool) {
 /// stores a closure, the tests a label.
 #[cfg(any(test, feature = "hydrate"))]
 mod registry {
-    /// One open container: its id, whether it may be closed by anything
-    /// but its own actions, and how to close it.
+    /// Names one `manage` call. Ids are not unique over time: a component
+    /// that remounts reuses its id, and the instance it replaced may be
+    /// disposed after the new one became current, so the registry matches
+    /// on this token and never on the id.
+    pub type Token = u64;
+
+    /// One open container: its id and token, whether it may be closed by
+    /// anything but its own actions, and how to close it.
     pub struct Entry<C> {
+        /// Read by the tests only: the registry decides on the token.
+        #[cfg_attr(not(test), allow(dead_code))]
         pub id: &'static str,
+        pub token: Token,
         pub dismissable: bool,
         pub closer: C,
     }
@@ -73,6 +82,7 @@ mod registry {
         }
 
         /// The current container's id.
+        #[cfg(test)]
         pub fn current(&self) -> Option<&'static str> {
             self.current.as_ref().map(|e| e.id)
         }
@@ -88,9 +98,10 @@ mod registry {
             Ok(self.current.replace(entry).map(|old| old.closer))
         }
 
-        /// `id` closed: clears it if it was current, and says whether it was.
-        pub fn close(&mut self, id: &'static str) -> bool {
-            let is_self = self.current() == Some(id);
+        /// `token` closed: clears it if it was current, and says whether
+        /// it was.
+        pub fn close(&mut self, token: Token) -> bool {
+            let is_self = self.current.as_ref().is_some_and(|e| e.token == token);
             if is_self {
                 self.current = None;
             }
@@ -111,7 +122,9 @@ mod glue {
 
     use leptos::prelude::*;
 
-    use super::registry::{Entry, Registry};
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use super::registry::{Entry, Registry, Token};
     use crate::button::Disclosure;
 
     /// The page-wide moves around the one-open rule.
@@ -135,6 +148,15 @@ mod glue {
     /// locked scroll, so there is nothing to give back).
     type Closer = Rc<dyn Fn()>;
 
+    /// What had focus before a container opened. A local arena value: it
+    /// is `Copy`, so the container's cleanup can hold it, and it is still
+    /// alive when that cleanup runs (cleanups run before the owner's
+    /// values are dropped).
+    type Previous<P> = StoredValue<Option<<P as Page>::Focus>, LocalStorage>;
+
+    /// The next token: one per `manage` call.
+    static NEXT_TOKEN: AtomicU64 = AtomicU64::new(0);
+
     thread_local! {
         /// The one container currently open, if any.
         static CURRENT: RefCell<Registry<Closer>> = const { RefCell::new(Registry::new()) };
@@ -153,12 +175,14 @@ mod glue {
     /// restore), remembers what had focus, locks scroll, moves focus in.
     fn opened<P: Page>(
         id: &'static str,
+        token: Token,
         dismissable: bool,
         closer: &Closer,
-        previous: &RefCell<Option<P::Focus>>,
+        previous: Previous<P>,
     ) {
         let entry = Entry {
             id,
+            token,
             dismissable,
             closer: closer.clone(),
         };
@@ -167,7 +191,7 @@ mod glue {
             Ok(Some(old_closer)) => old_closer(),
             Ok(None) => {}
         }
-        *previous.borrow_mut() = P::focused();
+        previous.set_value(P::focused());
         P::lock_scroll(true);
         P::focus_into(id);
     }
@@ -176,25 +200,34 @@ mod glue {
     /// the restore — it was closed through its closer: replaced (the new
     /// one already moved focus) or refused (it never took focus) — or
     /// restores focus and, if nothing replaced it, unlocks scroll.
-    fn closed<P: Page>(
-        id: &'static str,
-        skip_restore: &Cell<bool>,
-        previous: &RefCell<Option<P::Focus>>,
-    ) {
-        let was_current = CURRENT.with(|c| c.borrow_mut().close(id));
+    fn closed<P: Page>(token: Token, skip_restore: &Cell<bool>, previous: Previous<P>) {
+        let was_current = CURRENT.with(|c| c.borrow_mut().close(token));
         if skip_restore.replace(false) {
             return;
         }
         if was_current {
             P::lock_scroll(false);
         }
-        P::restore_focus(previous.borrow_mut().take());
+        P::restore_focus(previous.try_update_value(Option::take).flatten());
+    }
+
+    /// The container's owner is gone while it may still be current: its
+    /// `Effect` will never see it close, so it leaves the registry here
+    /// (nothing is left to call into the disposed owner, and a stale
+    /// non-dismissable entry would refuse every later open) and, if it was
+    /// current, gives back the scroll and the focus it took.
+    fn disposed<P: Page>(token: Token, previous: Previous<P>) {
+        if CURRENT.with(|c| c.borrow_mut().close(token)) {
+            P::lock_scroll(false);
+            P::restore_focus(previous.try_update_value(Option::take).flatten());
+        }
     }
 
     /// Wires one container's open/close transitions into [`opened`] and
     /// [`closed`] through an `Effect`.
     pub fn manage<P: Page, D: Disclosure>(controls: D, dismissable: bool) {
-        let previous: Rc<RefCell<Option<P::Focus>>> = Rc::new(RefCell::new(None));
+        let token = NEXT_TOKEN.fetch_add(1, Ordering::Relaxed);
+        let previous: Previous<P> = StoredValue::new_local(None);
         let skip_restore = Rc::new(Cell::new(false));
         let closer: Closer = {
             let skip_restore = skip_restore.clone();
@@ -206,12 +239,13 @@ mod glue {
         Effect::new(move |was_open: Option<bool>| {
             let is_open = controls.is_open();
             if is_open && !was_open.unwrap_or(false) {
-                opened::<P>(controls.id(), dismissable, &closer, &previous);
+                opened::<P>(controls.id(), token, dismissable, &closer, previous);
             } else if !is_open && was_open.unwrap_or(false) {
-                closed::<P>(controls.id(), &skip_restore, &previous);
+                closed::<P>(token, &skip_restore, previous);
             }
             is_open
         });
+        on_cleanup(move || disposed::<P>(token, previous));
     }
 }
 
@@ -301,7 +335,7 @@ mod hydrate {
     /// descendant (or Shift+Tab on its first) wraps around instead of
     /// leaving the container.
     fn trap_tab<D: Disclosure>(controls: D) {
-        let _ = window_event_listener(leptos::ev::keydown, move |ev| {
+        let handle = window_event_listener(leptos::ev::keydown, move |ev| {
             if !controls.is_open() || ev.key() != "Tab" {
                 return;
             }
@@ -323,6 +357,9 @@ mod hydrate {
                 ev.prevent_default();
             }
         });
+        // The listener ends with the container's owner: it would otherwise
+        // read a disposed `controls` on every later Tab.
+        on_cleanup(move || handle.remove());
     }
 
     /// The browser's [`super::manage`]: the Tab trap, then the glue on
@@ -451,9 +488,16 @@ pub(crate) mod fake {
 mod tests {
     use super::registry::{Entry, Registry};
 
+    /// A test's token for `id`: ids are unique within a test, except where
+    /// a test builds two entries by hand.
+    fn token(id: &'static str) -> u64 {
+        u64::from(id.as_bytes()[0])
+    }
+
     fn entry(id: &'static str) -> Entry<&'static str> {
         Entry {
             id,
+            token: token(id),
             dismissable: true,
             closer: id,
         }
@@ -474,6 +518,18 @@ mod tests {
     }
 
     #[test]
+    fn closing_by_the_token_of_an_older_one_with_the_same_id_leaves_the_current_one() {
+        let mut registry = Registry::new();
+        let _ = registry.open(Entry {
+            token: 1,
+            ..entry("a")
+        });
+        assert!(!registry.close(2));
+        assert_eq!(registry.current(), Some("a"));
+        assert!(registry.close(1));
+    }
+
+    #[test]
     fn a_second_open_replaces_a_dismissable_one() {
         let mut registry = Registry::new();
         let _ = registry.open(entry("a"));
@@ -485,7 +541,7 @@ mod tests {
     fn closing_the_current_one_clears_it() {
         let mut registry = Registry::new();
         let _ = registry.open(entry("a"));
-        assert!(registry.close("a"));
+        assert!(registry.close(token("a")));
         assert_eq!(registry.current(), None);
     }
 
@@ -494,7 +550,7 @@ mod tests {
         let mut registry = Registry::new();
         let _ = registry.open(entry("a"));
         let _ = registry.open(entry("b"));
-        assert!(!registry.close("a"));
+        assert!(!registry.close(token("a")));
         assert_eq!(registry.current(), Some("b"));
     }
 
@@ -529,7 +585,7 @@ mod tests {
         let mut registry = Registry::new();
         let _ = registry.open(required("a"));
         let _ = registry.open(entry("b"));
-        assert!(!registry.close("b"));
+        assert!(!registry.close(token("b")));
         assert_eq!(registry.current(), Some("a"));
     }
 
@@ -538,7 +594,7 @@ mod tests {
         let mut registry = Registry::new();
         let _ = registry.open(required("a"));
         let _ = registry.open(entry("b"));
-        assert!(registry.close("a"));
+        assert!(registry.close(token("a")));
         assert!(matches!(registry.open(entry("b")), Ok(None)));
         assert_eq!(registry.current(), Some("b"));
     }
@@ -636,6 +692,116 @@ mod glue_tests {
             let m = moves();
             assert_eq!(m.focus_into, ["a", "b"]);
             assert!(m.locked);
+        });
+    }
+
+    /// A managed container `id` built under its own owner, returned with
+    /// that owner so a test can dispose it, as an unmounted view does.
+    fn owned_container(id: &'static str, dismissable: bool) -> (Owner, RwSignal<bool>) {
+        let open = RwSignal::new(false);
+        let owner = Owner::new();
+        owner.with(|| manage(Disclosed::new(id, open), dismissable));
+        (owner, open)
+    }
+
+    #[test]
+    fn a_disposed_required_one_no_longer_refuses_the_next_open() {
+        fake::run(async || {
+            let (a_owner, a) = owned_container("a", false);
+            let b = container("b", true);
+            settle().await;
+            a.set(true);
+            settle().await;
+            a_owner.cleanup();
+            settle().await;
+            b.set(true);
+            settle().await;
+            assert!(b.get_untracked(), "B opens: A left the registry");
+            assert_eq!(moves().focus_into, ["a", "b"]);
+        });
+    }
+
+    #[test]
+    fn a_disposed_open_one_unlocks_the_scroll_and_gives_focus_back() {
+        fake::run(async || {
+            let (owner, a) = owned_container("a", true);
+            settle().await;
+            focus("opener");
+            a.set(true);
+            settle().await;
+            assert!(moves().locked);
+            owner.cleanup();
+            settle().await;
+            let m = moves();
+            assert_eq!((m.locked, m.unlocks), (false, 1), "scroll unlocked once");
+            assert_eq!(m.restores, [Some("opener".to_owned())]);
+        });
+    }
+
+    #[test]
+    fn a_disposed_closed_one_moves_nothing() {
+        fake::run(async || {
+            let (owner, _a) = owned_container("a", true);
+            settle().await;
+            owner.cleanup();
+            settle().await;
+            assert_eq!(moves(), Moves::default());
+        });
+    }
+
+    #[test]
+    fn a_disposed_one_is_not_closed_by_the_next_open() {
+        fake::run(async || {
+            let (a_owner, a) = owned_container("a", true);
+            let b = container("b", true);
+            settle().await;
+            a.set(true);
+            settle().await;
+            a_owner.cleanup();
+            settle().await;
+            let before = moves();
+            b.set(true);
+            settle().await;
+            assert!(b.get_untracked());
+            let m = moves();
+            assert_eq!(m.unlocks, before.unlocks, "no second unlock for A");
+            assert_eq!(m.restores, before.restores, "no second restore for A");
+        });
+    }
+
+    #[test]
+    fn an_older_disposed_one_with_the_same_id_leaves_the_live_one_current() {
+        fake::run(async || {
+            // A component remounts under the same id: the old instance is
+            // disposed after the new one became current.
+            let (old_owner, _old) = owned_container("same", true);
+            let (_new_owner, new) = owned_container("same", true);
+            settle().await;
+            focus("opener");
+            new.set(true);
+            settle().await;
+            old_owner.cleanup();
+            settle().await;
+            let m = moves();
+            assert!(m.locked, "the live one keeps the scroll locked");
+            assert_eq!(m.unlocks, 0, "the old one unlocked nothing");
+            assert!(m.restores.is_empty(), "the old one restored nothing");
+        });
+    }
+
+    #[test]
+    fn the_old_one_disposed_before_the_new_one_opens_still_clears_the_registry() {
+        fake::run(async || {
+            let (old_owner, old) = owned_container("same", false);
+            let (_new_owner, new) = owned_container("same", true);
+            settle().await;
+            old.set(true);
+            settle().await;
+            old_owner.cleanup();
+            settle().await;
+            new.set(true);
+            settle().await;
+            assert!(new.get_untracked(), "the new one opens: no stale entry");
         });
     }
 }

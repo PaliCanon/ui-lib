@@ -102,15 +102,20 @@ fn flip_if_overflowing(panel: NodeRef<leptos::html::Div>) {
 fn close_on_outside_interaction<D: Disclosure>(controls: D) {
     #[cfg(feature = "hydrate")]
     {
-        let _ = window_event_listener(leptos::ev::keydown, move |ev| {
+        let escape = window_event_listener(leptos::ev::keydown, move |ev| {
             if controls.is_open() && ev.key() == "Escape" {
                 controls.set_open(false);
             }
         });
-        let _ = window_event_listener(leptos::ev::click, move |ev| {
+        let outside = window_event_listener(leptos::ev::click, move |ev| {
             if controls.is_open() && click_is_outside(controls.id(), &ev) {
                 controls.set_open(false);
             }
+        });
+        // Both end with the popover's owner.
+        on_cleanup(move || {
+            escape.remove();
+            outside.remove();
         });
     }
     #[cfg(not(feature = "hydrate"))]
