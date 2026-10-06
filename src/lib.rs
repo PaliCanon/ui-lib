@@ -60,6 +60,8 @@
 //! - [`bucket_strip`] — [`bucket_strip::BucketStrip`], n labelled counts in a
 //!   row (three columns on a phone), each cell a plain box or a link on
 //!   [`button::Variant::Tile`].
+//! - [`slider`] — [`slider::Slider`], a native range slider with its value
+//!   shown at the right, the value held inside `[min, max]`.
 //! - [`session_header`] — [`session_header::SessionHeader`], a counter
 //!   ("3 / 10 cards") and a close button; the dialog is the caller's.
 
@@ -85,6 +87,7 @@ pub mod reveal_card;
 pub mod search;
 pub mod session_header;
 pub mod shell;
+pub mod slider;
 pub mod theme;
 mod viewport;
 
@@ -116,4 +119,5 @@ pub use reveal_card::RevealCard;
 pub use search::{SearchCard, SearchRow};
 pub use session_header::SessionHeader;
 pub use shell::{AppShell, ShellState};
+pub use slider::Slider;
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};
