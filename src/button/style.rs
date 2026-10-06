@@ -37,8 +37,10 @@ pub enum Size {
     Lg,
 }
 
-/// Shared by all variants: layout, focus ring, disabled.
-const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center gap-2 \
+/// Shared by all variants: layout, focus ring, disabled. No gap: each variant
+/// (or, for a tile, its size) sets its own, so one utility sets it and a
+/// smaller one is not outranked by a base `gap-2`.
+const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center \
     font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 \
     focus-visible:outline-gold disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40";
 
@@ -46,38 +48,47 @@ const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center
 /// the variant's arm (`concat!` takes literals, not constants) share one text.
 macro_rules! tile_surface {
     () => {
-        "flex-col items-center justify-center gap-2 rounded-xl border border-line bg-chip px-3 py-2 text-center"
+        "flex-col items-center justify-center rounded-xl border border-line bg-chip px-3 text-center"
     };
 }
 
 /// The resting look of a [`Variant::Tile`], with no state in it: a plain
 /// `<div>` cell uses it alone (adding `flex`, which `BASE`'s `inline-flex`
 /// stands for on a link), a link gets it through the variant. `items-center`
-/// and `gap-2` repeat `BASE` on purpose, with the same values, so the
-/// plain cell spaces its content like the link.
+/// repeats `BASE` on purpose, so the plain cell aligns its content like the
+/// link; its vertical padding and gap come from [`tile_spacing`], for both.
 pub(crate) const TILE_SURFACE: &str = tile_surface!();
+
+/// The tile's vertical padding and gap for `size`.
+pub(crate) fn tile_spacing(size: Size) -> &'static str {
+    match size {
+        Size::Sm => "gap-0 py-1.5",
+        Size::Md => "gap-2 py-2",
+        Size::Lg => "gap-2 py-3",
+    }
+}
 
 fn variant_classes(variant: Variant) -> &'static str {
     match variant {
         Variant::Tile => concat!(
             tile_surface!(),
-            " hover:border-gold/60 active:bg-chip-hover"
+            " hover:border-gold/60 active:bg-chip-hover aria-pressed:border-gold aria-pressed:bg-gold/10 aria-pressed:hover:border-gold"
         ),
         Variant::Icon => {
-            "justify-center rounded-xl border border-transparent text-muted hover:border-gold/60 hover:bg-chip \
+            "gap-2 justify-center rounded-xl border border-transparent text-muted hover:border-gold/60 hover:bg-chip \
              hover:text-heading active:bg-chip-hover aria-expanded:bg-gold/15 aria-expanded:text-heading \
              aria-pressed:bg-gold/15 aria-pressed:text-heading"
         }
         Variant::Chip => {
-            "justify-center rounded-full border border-line bg-chip text-muted hover:border-gold/60 hover:text-heading \
+            "gap-2 justify-center rounded-full border border-line bg-chip text-muted hover:border-gold/60 hover:text-heading \
              active:bg-chip-hover aria-expanded:border-gold aria-expanded:bg-gold/10 \
              aria-expanded:text-heading aria-pressed:border-gold aria-pressed:bg-gold/10 aria-pressed:text-heading"
         }
         Variant::Primary => {
-            "justify-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:brightness-95"
+            "gap-2 justify-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:brightness-95"
         }
         Variant::Accent => {
-            "justify-center rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
+            "gap-2 justify-center rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
              active:bg-gold/15"
         }
         Variant::Nav => {
@@ -86,7 +97,7 @@ fn variant_classes(variant: Variant) -> &'static str {
              aria-checked:bg-gold/15 aria-checked:text-heading aria-expanded:bg-gold/15 aria-expanded:text-heading"
         }
         Variant::Ghost => {
-            "justify-center rounded-sm text-gold-text underline underline-offset-4 hover:text-heading"
+            "gap-2 justify-center rounded-sm text-gold-text underline underline-offset-4 hover:text-heading"
         }
     }
 }
@@ -122,6 +133,10 @@ pub fn classes(variant: Variant, size: Size, layout: &str) -> String {
         variant_classes(variant),
         size_classes(variant, size)
     );
+    if variant == Variant::Tile {
+        out.push(' ');
+        out.push_str(tile_spacing(size));
+    }
     if !layout.is_empty() {
         out.push(' ');
         out.push_str(layout);
@@ -247,6 +262,74 @@ mod tests {
             "focus-visible:outline-gold",
         ] {
             assert!(c.contains(state), "{state} in {c}");
+        }
+    }
+
+    #[test]
+    fn tile_shows_pressed_like_a_chip_and_only_through_its_state() {
+        let c = classes(Variant::Tile, Size::Md, "");
+        assert!(
+            tokens(&c).contains(&"aria-pressed:border-gold")
+                && tokens(&c).contains(&"aria-pressed:bg-gold/10"),
+            "{c}"
+        );
+        // Pressed wins under the pointer too: `hover:border-gold/60` sets the
+        // same property, so the pressed look is repeated for the hover state.
+        assert!(
+            tokens(&c).contains(&"aria-pressed:hover:border-gold"),
+            "{c}"
+        );
+        // The resting surface stays stateless: only the variant reacts.
+        assert!(!TILE_SURFACE.contains("aria-pressed"), "{TILE_SURFACE}");
+    }
+
+    #[test]
+    fn tile_padding_and_gap_follow_its_size() {
+        for (size, spacing) in [
+            (Size::Sm, ["gap-0", "py-1.5"]),
+            (Size::Md, ["gap-2", "py-2"]),
+            (Size::Lg, ["gap-2", "py-3"]),
+        ] {
+            let c = classes(Variant::Tile, size, "");
+            for class in spacing {
+                assert!(tokens(&c).contains(&class), "{class} in {c}");
+            }
+        }
+        let sm = classes(Variant::Tile, Size::Sm, "");
+        assert!(!tokens(&sm).contains(&"py-2"), "{sm}");
+        assert!(!tokens(&sm).contains(&"gap-2"), "{sm}");
+    }
+
+    #[test]
+    fn the_tile_surface_leaves_padding_and_gap_to_the_size() {
+        for class in ["py-", "gap-"] {
+            assert!(!TILE_SURFACE.contains(class), "{class} in {TILE_SURFACE}");
+        }
+        assert!(tokens(TILE_SURFACE).contains(&"px-3"), "{TILE_SURFACE}");
+    }
+
+    #[test]
+    fn tile_spacing_is_the_one_the_plain_cell_shares() {
+        for size in [Size::Sm, Size::Md, Size::Lg] {
+            let c = classes(Variant::Tile, size, "");
+            for class in tile_spacing(size).split_whitespace() {
+                assert!(tokens(&c).contains(&class), "{class} in {c}");
+            }
+        }
+    }
+
+    #[test]
+    fn no_variant_sets_the_gap_or_the_vertical_padding_twice() {
+        // Tailwind writes a smaller `gap-0` before `gap-2`, so a second
+        // utility would silently lose (ui-components.md).
+        for v in ALL {
+            for size in [Size::Sm, Size::Md, Size::Lg] {
+                let c = classes(v, size, "");
+                for prefix in ["gap-", "py-"] {
+                    let n = tokens(&c).iter().filter(|t| t.starts_with(prefix)).count();
+                    assert!(n <= 1, "{prefix} {n} times in {c}");
+                }
+            }
         }
     }
 

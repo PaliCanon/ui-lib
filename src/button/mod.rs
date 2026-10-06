@@ -30,8 +30,8 @@ pub(crate) use choice_cards::tests as choice_cards_test;
 pub use choice_cards::{ChoiceCardOption, ChoiceCards};
 pub use disclosure::{Disclosed, Disclosure};
 pub use segmented::{Segmented, SegmentedOption};
-pub(crate) use style::TILE_SURFACE;
 pub use style::{Size, Variant, classes};
+pub(crate) use style::{TILE_SURFACE, tile_spacing};
 
 fn is_disabled(disabled: Option<Signal<bool>>) -> bool {
     disabled.is_some_and(|d| d.get())

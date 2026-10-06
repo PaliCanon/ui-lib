@@ -7,10 +7,15 @@
 //! without is a plain box with the tile's resting surface and no state, since
 //! it does nothing. In the DOM the label comes before the count (a screen
 //! reader hears the name before the number); the count is shown above it.
+//!
+//! With `on_select` the strip filters in place instead of navigating: every
+//! cell is a `<button aria-pressed>` in the same tile look, the `selected`
+//! one pressed, and the cells' `to` are ignored. The pressed look belongs to
+//! the variant, not to this file.
 
 use leptos::prelude::*;
 
-use crate::button::{LinkButton, Size, TILE_SURFACE, Variant};
+use crate::button::{LinkButton, Size, TILE_SURFACE, Variant, classes, tile_spacing};
 
 /// One cell of a [`BucketStrip`]: a label, a count and, optionally, where the
 /// cell leads.
@@ -35,6 +40,18 @@ pub fn BucketStrip(
     /// A heading above the strip (an `<h2>`); none by default.
     #[prop(optional, into)]
     heading: Option<String>,
+    /// The cells' size: Md by default; Sm is compact (a smaller count and label); Lg draws an Lg box with the Md body.
+    #[prop(optional)]
+    size: Size,
+    /// Called with the cell's index when a cell is pressed; given, every cell is a button and the cells' `to` are ignored.
+    ///
+    /// Selection is by index, so it follows the cells' order.
+    #[prop(optional)]
+    on_select: Option<Callback<usize>>,
+    /// The index of a cell in `cells`, shown pressed; keep the cells' order
+    /// stable while one is selected; omit it and nothing is pressed.
+    #[prop(optional, into)]
+    selected: Option<Signal<Option<usize>>>,
 ) -> impl IntoView {
     (!cells.is_empty()).then(|| {
         view! {
@@ -46,10 +63,17 @@ pub fn BucketStrip(
                 <ul class="grid grid-cols-3 gap-2 sm:flex sm:gap-3">
                     {cells
                         .into_iter()
-                        .map(|cell| {
+                        .enumerate()
+                        .map(|(index, cell)| {
                             view! {
                                 <li class="sm:flex-1">
-                                    <Cell cell=cell />
+                                    <Cell
+                                        cell=cell
+                                        size=size
+                                        index=index
+                                        on_select=on_select
+                                        selected=selected
+                                    />
                                 </li>
                             }
                         })
@@ -60,46 +84,105 @@ pub fn BucketStrip(
     })
 }
 
-/// One cell: a link when it has a target, a plain box when not.
+/// One cell: a button when the strip selects, else a link when it has a
+/// target, a plain box when not.
 #[component]
-fn Cell(cell: Bucket) -> impl IntoView {
+fn Cell(
+    cell: Bucket,
+    size: Size,
+    index: usize,
+    on_select: Option<Callback<usize>>,
+    selected: Option<Signal<Option<usize>>>,
+) -> impl IntoView {
     let Bucket { label, count, to } = cell;
+    if let Some(on_select) = on_select {
+        return view! {
+            <SelectCell
+                label=label
+                count=count
+                size=size
+                index=index
+                on_select=on_select
+                selected=selected
+            />
+        }
+        .into_any();
+    }
     // A blank `to` is none: a link to nowhere does nothing (review rounds 1
     // and 2); a padded one keeps its trimmed href.
     match to.as_deref().map(str::trim).filter(|href| !href.is_empty()) {
         Some(href) => {
-            view! { <LinkCell href=href.to_owned() label=label count=count /> }.into_any()
+            view! { <LinkCell href=href.to_owned() label=label count=count size=size /> }.into_any()
         }
-        None => view! { <PlainCell label=label count=count /> }.into_any(),
+        None => view! { <PlainCell label=label count=count size=size /> }.into_any(),
     }
 }
 
 /// A cell that leads somewhere: a real `<a href>` filling its box.
 #[component]
-fn LinkCell(href: String, label: String, count: usize) -> impl IntoView {
+fn LinkCell(href: String, label: String, count: usize, size: Size) -> impl IntoView {
     view! {
-        <LinkButton href=href variant=Variant::Tile size=Size::Md layout="h-full w-full">
-            <CellBody label=label count=count />
+        <LinkButton href=href variant=Variant::Tile size=size layout="h-full w-full">
+            <CellBody label=label count=count size=size />
         </LinkButton>
+    }
+}
+
+/// A cell that selects: a `<button aria-pressed>` in the tile look, pressed
+/// while it is the selected one. The variant draws the pressed state.
+#[component]
+fn SelectCell(
+    label: String,
+    count: usize,
+    size: Size,
+    index: usize,
+    on_select: Callback<usize>,
+    selected: Option<Signal<Option<usize>>>,
+) -> impl IntoView {
+    let pressed = move || selected.is_some_and(|s| s.get() == Some(index));
+    view! {
+        <button
+            type="button"
+            class=classes(Variant::Tile, size, "h-full w-full")
+            aria-pressed=move || pressed().to_string()
+            on:click=move |_| on_select.run(index)
+        >
+            <CellBody label=label count=count size=size />
+        </button>
     }
 }
 
 /// A cell that does nothing: the tile's resting surface alone, no state.
 #[component]
-fn PlainCell(label: String, count: usize) -> impl IntoView {
+fn PlainCell(label: String, count: usize, size: Size) -> impl IntoView {
     view! {
-        <div class=format!("flex h-full {TILE_SURFACE}")>
-            <CellBody label=label count=count />
+        <div class=format!("flex h-full {TILE_SURFACE} {}", tile_spacing(size))>
+            <CellBody label=label count=count size=size />
         </div>
+    }
+}
+
+/// Size-specific classes for the cell body.
+fn body_classes(size: Size) -> (&'static str, &'static str) {
+    match size {
+        Size::Sm => (
+            "text-[11px] leading-tight text-muted",
+            "order-first text-base font-semibold text-heading",
+        ),
+        Size::Md | Size::Lg => (
+            "text-xs text-muted",
+            "order-first text-2xl font-semibold text-heading",
+        ),
     }
 }
 
 /// What a cell shows: the label first in the DOM, the count above it on screen.
 #[component]
-fn CellBody(label: String, count: usize) -> impl IntoView {
+fn CellBody(label: String, count: usize, size: Size) -> impl IntoView {
+    let (label_class, count_class) = body_classes(size);
     view! {
-        <span class="text-xs text-muted">{label}</span>
-        <span class="order-first text-2xl font-semibold text-heading">{count}</span>
+        <span class=label_class>{label}</span>
+        <span class=count_class>{count}</span>
     }
 }
 
@@ -116,11 +199,24 @@ mod tests {
         }
     }
 
-    fn render(cells: Vec<Bucket>, heading: Option<&str>) -> String {
+    fn render_with_size(cells: Vec<Bucket>, heading: Option<&str>, size: Size) -> String {
         Owner::new().with(|| match heading {
-            Some(h) => view! { <BucketStrip cells=cells heading=h /> }.to_html(),
-            None => view! { <BucketStrip cells=cells /> }.to_html(),
+            Some(h) => view! { <BucketStrip cells=cells heading=h size=size /> }.to_html(),
+            None => view! { <BucketStrip cells=cells size=size /> }.to_html(),
         })
+    }
+
+    fn render_selectable(cells: Vec<Bucket>, selected: Option<usize>) -> String {
+        Owner::new().with(|| {
+            let on_select = Callback::new(|_: usize| {});
+            let selected = Signal::derive(move || selected);
+            view! { <BucketStrip cells=cells size=Size::Sm on_select=on_select selected=selected /> }
+                .to_html()
+        })
+    }
+
+    fn render(cells: Vec<Bucket>, heading: Option<&str>) -> String {
+        render_with_size(cells, heading, Size::Md)
     }
 
     /// The opening tag that contains `needle`, from its `<` to its `>`.
@@ -293,5 +389,138 @@ mod tests {
         assert!(!html.contains("<b>x"), "{html}");
         assert!(!html.contains("<i>h"), "{html}");
         assert!(html.contains("&lt;b&gt;"), "{html}");
+    }
+
+    #[test]
+    fn default_render_has_md_count_size() {
+        let html = render(vec![bucket("Default", 5, None)], None);
+        assert!(
+            html.contains("text-2xl"),
+            "default should have text-2xl count: {html}"
+        );
+    }
+
+    #[test]
+    fn sm_size_has_compact_count_and_label() {
+        let html = render_with_size(vec![bucket("Compact", 3, None)], None, Size::Sm);
+        assert!(
+            html.contains("text-base"),
+            "Sm should have text-base count: {html}"
+        );
+        assert!(
+            html.contains("text-[11px]"),
+            "Sm should have text-[11px] label: {html}"
+        );
+        assert!(
+            !html.contains("text-2xl"),
+            "Sm should not have text-2xl: {html}"
+        );
+    }
+
+    #[test]
+    fn sm_link_cell_carries_tile_sm_size_class() {
+        let html = render_with_size(vec![bucket("Link", 2, Some("/test"))], None, Size::Sm);
+        assert!(
+            html.contains("min-h-8"),
+            "Sm link cell should have min-h-8 from Tile Sm: {html}"
+        );
+        assert!(
+            !html.contains("min-h-11"),
+            "Sm should not have Md size class: {html}"
+        );
+    }
+
+    #[test]
+    fn with_on_select_every_cell_is_a_button_and_the_selected_one_is_pressed() {
+        let html = render_selectable(
+            vec![
+                bucket("A", 1, Some("/a")),
+                bucket("B", 2, None),
+                bucket("C", 3, Some("/c")),
+            ],
+            Some(1),
+        );
+        assert!(!html.contains("<a "), "{html}");
+        assert!(!html.contains("href"), "{html}");
+        assert!(!html.contains("<div"), "{html}");
+        assert_eq!(html.matches("<button").count(), 3, "{html}");
+        assert_eq!(html.matches(r#"aria-pressed="false""#).count(), 2, "{html}");
+        assert_eq!(html.matches(r#"aria-pressed="true""#).count(), 1, "{html}");
+        let pressed = tag_around(&html, r#"aria-pressed="true""#);
+        assert!(pressed.starts_with("<button"), "{pressed}");
+        assert!(pressed.contains(r#"type="button""#), "{pressed}");
+        let on = html.find(r#"aria-pressed="true""#).expect(&html);
+        assert!(html[on..].find(">B<").is_some() && html[..on].find(">C<").is_none());
+    }
+
+    #[test]
+    fn a_selectable_cell_is_the_tile_at_the_strips_size() {
+        let html = render_selectable(vec![bucket("A", 1, None)], None);
+        let button = tag_around(&html, "<button");
+        assert!(
+            button.contains("rounded-xl border border-line bg-chip"),
+            "{button}"
+        );
+        assert!(button.contains("aria-pressed:border-gold"), "{button}");
+        assert!(button.contains("min-h-8"), "{button}");
+        assert!(html.contains("text-base"), "{html}");
+        assert_eq!(html.matches(r#"aria-pressed="false""#).count(), 1, "{html}");
+    }
+
+    #[test]
+    fn selectable_without_a_selection_presses_nothing() {
+        let html = render_selectable(vec![bucket("A", 1, None), bucket("B", 2, None)], None);
+        assert_eq!(html.matches(r#"aria-pressed="true""#).count(), 0, "{html}");
+        assert_eq!(html.matches(r#"aria-pressed="false""#).count(), 2, "{html}");
+    }
+
+    #[test]
+    fn a_selection_out_of_range_presses_nothing() {
+        let html = render_selectable(vec![bucket("A", 1, None)], Some(7));
+        assert_eq!(html.matches(r#"aria-pressed="true""#).count(), 0, "{html}");
+    }
+
+    #[test]
+    fn without_on_select_nothing_is_a_button() {
+        let html = render(vec![bucket("A", 1, Some("/a")), bucket("B", 2, None)], None);
+        assert!(!html.contains("<button"), "{html}");
+        assert!(!html.contains(r#"aria-pressed=""#), "{html}");
+        assert!(html.contains("<a "), "{html}");
+    }
+
+    #[test]
+    fn selected_alone_does_not_make_buttons() {
+        let html = Owner::new().with(|| {
+            let selected = Signal::derive(|| Some(0));
+            view! { <BucketStrip cells=vec![bucket("A", 1, Some("/a"))] selected=selected /> }
+                .to_html()
+        });
+        assert!(!html.contains("<button"), "{html}");
+        assert!(html.contains("<a "), "{html}");
+    }
+
+    #[test]
+    fn the_compact_count_is_text_base_not_text_lg() {
+        let html = render_with_size(vec![bucket("A", 3, None)], None, Size::Sm);
+        assert!(html.contains("text-base"), "{html}");
+        assert!(!html.contains("text-lg"), "{html}");
+        let html = render_selectable(vec![bucket("A", 3, None)], None);
+        assert!(html.contains("text-base"), "{html}");
+    }
+
+    #[test]
+    fn the_plain_cell_takes_the_sizes_padding_and_gap() {
+        for (size, spacing, other) in [
+            (Size::Sm, ["gap-0", "py-1.5"], "py-2"),
+            (Size::Md, ["gap-2", "py-2"], "py-1.5"),
+        ] {
+            let html = render_with_size(vec![bucket("Done", 9, None)], None, size);
+            let div = tag_around(&html, TILE_SURFACE);
+            let tokens: Vec<&str> = div.split(['"', ' ']).collect();
+            for class in spacing {
+                assert!(tokens.contains(&class), "{class} in {div}");
+            }
+            assert!(!tokens.contains(&other), "{other} in {div}");
+        }
     }
 }
