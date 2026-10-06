@@ -89,7 +89,8 @@ fn variant_classes(variant: Variant) -> &'static str {
         }
         Variant::Accent => {
             "gap-2 justify-center rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
-             active:bg-gold/15"
+             active:bg-gold/15 aria-expanded:border-gold aria-expanded:bg-gold/15 aria-expanded:hover:bg-gold/15 \
+             aria-pressed:border-gold aria-pressed:bg-gold/15 aria-pressed:hover:bg-gold/15"
         }
         Variant::Nav => {
             "w-full justify-start whitespace-nowrap rounded-xl text-muted hover:bg-chip hover:text-heading \
@@ -157,6 +158,20 @@ mod tests {
         Variant::Nav,
         Variant::Tile,
     ];
+
+    #[test]
+    fn accent_shows_open_and_pressed_and_keeps_them_under_the_pointer() {
+        let c = classes(Variant::Accent, Size::Md, "");
+        for state in ["aria-expanded", "aria-pressed"] {
+            for class in [
+                format!("{state}:border-gold"),
+                format!("{state}:bg-gold/15"),
+                format!("{state}:hover:bg-gold/15"),
+            ] {
+                assert!(c.split(' ').any(|t| t == class), "{class} in {c}");
+            }
+        }
+    }
 
     #[test]
     fn primary_fills_from_its_own_tokens_not_the_gold_accent() {
