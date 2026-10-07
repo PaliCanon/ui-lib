@@ -283,7 +283,10 @@ mod tests {
         let html = render(vec![bucket("Due", 4, Some("/review?stage=1"))], None);
         let a = tag_around(&html, "<a ");
         assert!(a.contains(r#"href="/review?stage=1""#), "{a}");
-        assert!(a.contains("rounded-xl border border-line bg-chip"), "{a}");
+        assert!(
+            a.contains("rounded-xl border border-gold/25 bg-chip"),
+            "{a}"
+        );
         assert!(a.contains("hover:border-gold/60"), "{a}");
         assert!(a.contains("min-h-11"), "{a}");
         assert!(!html.contains("<div"), "no plain cell: {html}");
@@ -517,7 +520,7 @@ mod tests {
         let html = render_selectable(vec![bucket("A", 1, None)], None);
         let button = tag_around(&html, "<button");
         assert!(
-            button.contains("rounded-xl border border-line bg-chip"),
+            button.contains("rounded-xl border border-gold/25 bg-chip"),
             "{button}"
         );
         assert!(button.contains("aria-pressed:border-gold"), "{button}");

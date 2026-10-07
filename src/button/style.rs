@@ -48,7 +48,7 @@ const BASE: &str = "inline-flex shrink-0 cursor-pointer select-none items-center
 /// the variant's arm (`concat!` takes literals, not constants) share one text.
 macro_rules! tile_surface {
     () => {
-        "flex-col items-center justify-center rounded-xl border border-line bg-chip px-3 text-center"
+        "flex-col items-center justify-center rounded-xl border border-gold/25 bg-chip px-3 text-center"
     };
 }
 
@@ -359,7 +359,7 @@ mod tests {
             "text-center",
             "rounded-xl",
             "border",
-            "border-line",
+            "border-gold/25",
             "bg-chip",
         ] {
             assert!(t.contains(&class), "{class} in {c}");
@@ -369,7 +369,7 @@ mod tests {
 
     #[test]
     fn tile_extends_the_resting_surface() {
-        assert!(TILE_SURFACE.contains("rounded-xl border border-line bg-chip"));
+        assert!(TILE_SURFACE.contains("rounded-xl border border-gold/25 bg-chip"));
         assert!(variant_classes(Variant::Tile).starts_with(TILE_SURFACE));
     }
 
