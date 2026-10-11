@@ -51,6 +51,9 @@
 //!   row's `form_id` required.
 //! - [`pali`] — [`pali::Pali`], a Pāli text: `lang="pi"`, the serif face and
 //!   a line height that never clips the diacritics, in three sizes.
+//! - [`pali_text`] — [`pali_text::PaliText`], a Pāli passage whose words
+//!   open their meaning: a popover under the word (a bottom sheet on a
+//!   phone) listing the caller's [`pali_text::WordEntry`]s.
 //! - [`pali_term`] — [`pali_term::PaliTerm`], a Pāli term on two lines: the
 //!   lemma in bold with a tag after it, the gloss under it, and a slot at
 //!   the right of each line; not interactive, the caller wraps it.
@@ -80,6 +83,7 @@ pub mod motion;
 pub mod nav;
 pub mod pali;
 pub mod pali_term;
+pub mod pali_text;
 pub mod persisted;
 pub mod popover;
 pub mod presence;
@@ -112,6 +116,7 @@ pub use motion::{Edge, Motion};
 pub use nav::{NavEntry, NavList, NavSection};
 pub use pali::{Pali, PaliSize};
 pub use pali_term::PaliTerm;
+pub use pali_text::{PaliText, Token, WordEntry, words};
 pub use persisted::persisted;
 pub use popover::Popover;
 pub use presence::Presence;
