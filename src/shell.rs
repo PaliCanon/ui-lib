@@ -69,7 +69,7 @@ use crate::persisted;
 use crate::theme::{self, Theme, ThemePicker};
 
 /// Rail widths, collapsed and open.
-const RAIL_CLOSED: &str = "4rem";
+const RAIL_CLOSED: &str = "4.5rem";
 const RAIL_OPEN: &str = "13.5rem";
 
 /// Shared state of the shell, provided as context: any component below the
@@ -1091,7 +1091,7 @@ mod tests {
         assert!(html.contains(r#"aria-expanded="false""#), "{html}");
         assert!(html.contains(r#"aria-label="Open navigation""#), "{html}");
         assert!(html.contains(r#"data-open="false""#), "{html}");
-        assert!(html.contains("4rem"), "{html}");
+        assert!(html.contains("4.5rem"), "{html}");
         assert!(html.contains("/lotus.png"), "{html}");
         assert!(
             html.contains("<p>page</p>"),
