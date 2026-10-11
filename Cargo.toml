@@ -3,7 +3,7 @@ name = "palicanon-ui-lib"
 description = "PaliCanon's UI library: the shell, components, theme, languages and motion every service builds on (promoted from ui-lab once validated)."
 version = "0.1.0"
 edition = "2024"
-license = "LicenseRef-Proprietary"
+license = "CC-BY-NC-4.0"
 repository = "https://github.com/PaliCanon/ui-lib"
 publish = false
 
