@@ -1,4 +1,4 @@
-# 060 The repository's licence is CC-BY-NC-4.0
+# 061 The repository's licence is CC-BY-NC-4.0
 
 status: merged · rank: 1 · level: simple · type: chore · request: user, 2026-10-11 ("les repos PaliCanon devraient être sous la licence CC-BY-NC-4.0") · light path
 
