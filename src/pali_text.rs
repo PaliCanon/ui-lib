@@ -9,18 +9,28 @@
 //! - **Words** ([`words`]): runs of letters, Pāli diacritics included
 //!   (precomposed or combining), and the apostrophe of sandhi between two
 //!   letters (`sampādethā'ti` is one word); everything else is plain.
-//! - **Desktop** (`sm` and up): a [`Popover`] anchored under the pressed
-//!   word (flipped above it when it would run past the viewport's bottom):
-//!   the form pressed in bold, then each entry, its headword in bold, its
-//!   tag muted, its meaning under them; at most three entries, then
+//! - **Desktop** (`sm` and up): a [`Popover`] fixed in the viewport, so a
+//!   box that scrolls around the passage neither clips it nor scrolls to
+//!   show it. When it opens, it is measured and placed 8 px under the
+//!   pressed word (above it when below lacks room and above has more),
+//!   kept 16 px inside the viewport's sides; any scroll (the page's or a
+//!   box's around the passage) or a resize closes it. It shows the form
+//!   pressed in bold, then each entry, its headword in bold, its tag
+//!   muted, its meaning under them; at most three entries, then
 //!   "+ n more".
+//!
+//!   A fixed element is placed against the viewport unless one of its
+//!   ancestors has a `transform`, a `filter` or a `perspective`: that
+//!   ancestor then holds it as an `absolute` one would be, and the panel
+//!   lands off its word. Keep such styles off a passage's ancestors.
 //! - **Phone**: the same panel as a bottom sheet (fixed to the bottom,
 //!   full width, rounded top) over a dimmed backdrop, with a close button;
 //!   a tap on the backdrop closes it.
 //! - **One word open at a time**: pressing another word moves the panel
 //!   there, pressing the open word again closes it. Escape closes it, as
-//!   any [`Popover`]: its window listener lives as long as the open panel
-//!   and is removed with it.
+//!   any [`Popover`]: its window listeners (and, on desktop, the scroll
+//!   and resize ones) live as long as the open panel and are removed with
+//!   it.
 //!
 //! The word button sets state only (`aria-expanded`, `aria-controls`); its
 //! look is one class set, `WORD`, whose underline reacts to that state.
@@ -163,11 +173,24 @@ const WORD: &str = "cursor-pointer rounded-sm decoration-gold decoration-dotted 
     aria-expanded:underline";
 
 /// The panel's placement: a bottom sheet below `sm` (fixed, full width,
-/// square bottom corners, scrolling past 70% of the screen), a popover
-/// under the word from `sm`.
+/// square bottom corners, scrolling past 70% of the screen); from `sm`, a
+/// popover fixed in the viewport, its top and left read from the custom
+/// properties `--pc-word-top` and `--pc-word-left`, set when it opens
+/// (unset until then: it sits where it would flow, and is placed before
+/// the next frame is painted). Custom properties rather than an inline
+/// `top`: [`Popover`] clears an inline `top` each time it opens.
 const PANEL_LAYOUT: &str = "z-50 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 \
     max-sm:max-h-[70vh] max-sm:overflow-y-auto max-sm:rounded-b-none \
-    sm:absolute sm:left-0 sm:top-full sm:mt-2 sm:w-72 sm:max-w-[calc(100vw-2rem)]";
+    sm:fixed sm:top-(--pc-word-top) sm:left-(--pc-word-left) \
+    sm:w-72 sm:max-w-[calc(100vw-2rem)]";
+
+/// The custom property the desktop panel's `top` reads, in [`PANEL_LAYOUT`].
+#[cfg(feature = "hydrate")]
+const TOP_VAR: &str = "--pc-word-top";
+
+/// The custom property the desktop panel's `left` reads, in [`PANEL_LAYOUT`].
+#[cfg(feature = "hydrate")]
+const LEFT_VAR: &str = "--pc-word-left";
 
 /// The dimmed backdrop behind the sheet, on a phone only.
 const BACKDROP: &str = "fixed inset-0 z-40 bg-black/40 sm:hidden";
@@ -176,6 +199,64 @@ const BACKDROP: &str = "fixed inset-0 z-40 bg-black/40 sm:hidden";
 /// inherits), and room for the phone's home indicator.
 const CONTENT: &str = "px-2 py-1 text-left text-sm leading-6 font-normal text-ink \
     max-sm:pb-[max(0.25rem,env(safe-area-inset-bottom))]";
+
+/// Where the desktop panel goes: pure, so it is tested natively; the
+/// browser feeds it measured boxes (`place_panel`).
+#[cfg(any(test, feature = "hydrate"))]
+mod placement {
+    /// The gap between the word and the panel; also the least room kept
+    /// between the panel and the viewport's top and bottom edges.
+    const GAP_PX: f64 = 8.0;
+
+    /// The least room kept between the panel and the viewport's sides.
+    const SIDE_PX: f64 = 16.0;
+
+    /// A box in the viewport, in CSS pixels: the pressed word's left, top
+    /// and bottom edges.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub(super) struct Rect {
+        pub(super) left: f64,
+        pub(super) top: f64,
+        pub(super) bottom: f64,
+    }
+
+    /// A width and a height, in CSS pixels: the panel's, or the viewport's.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub(super) struct Size {
+        pub(super) width: f64,
+        pub(super) height: f64,
+    }
+
+    /// Where the panel's top-left corner goes, in viewport pixels.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub(super) struct Pos {
+        pub(super) top: f64,
+        pub(super) left: f64,
+    }
+
+    /// The panel's corner for a `word`, the panel's measured size and the
+    /// viewport's: [`GAP_PX`] under the word; above it instead when the
+    /// panel would run past the viewport's bottom there and the word has
+    /// more room above than below (never above the viewport's top: at
+    /// least [`GAP_PX`] down). Its left is the word's, clamped to stay
+    /// [`SIDE_PX`] inside both sides; a panel wider than that room starts
+    /// [`SIDE_PX`] in.
+    pub(super) fn place(word: Rect, panel: Size, viewport: Size) -> Pos {
+        let below = word.bottom + GAP_PX;
+        let fits_below = below + panel.height <= viewport.height - GAP_PX;
+        let more_above = word.top > viewport.height - word.bottom;
+        let top = if fits_below || !more_above {
+            below
+        } else {
+            (word.top - GAP_PX - panel.height).max(GAP_PX)
+        };
+        let left = word
+            .left
+            .min(viewport.width - panel.width - SIDE_PX)
+            .max(SIDE_PX);
+        Pos { top, left }
+    }
+}
 
 /// Which word of a passage is open: the passage's one [`Disclosure`], so
 /// its [`Popover`] closes it (Escape, a click outside) like any other.
@@ -232,7 +313,8 @@ struct Ctx {
 
 /// A Pāli passage whose words open their meaning: each word with entries
 /// is an inline button; pressing it shows its entries in a popover under
-/// it (a bottom sheet on a phone). See the [module](self) for the rules.
+/// it, fixed in the viewport (a bottom sheet on a phone). See the
+/// [module](self) for the rules.
 ///
 /// The entries come as a signal of a map rather than a lookup callback:
 /// whether a word is a button must be known for every word at the first
@@ -319,10 +401,12 @@ fn WordButton(index: usize, form: String, entries: Vec<WordEntry>, ctx: Ctx) -> 
     let open = ctx.open;
     let is_open = move || open.current() == Some(index);
     let panel_form = form.clone();
+    let word: NodeRef<leptos::html::Button> = NodeRef::new();
     view! {
-        <span class="relative">
+        <span>
             <Pali size=ctx.size>
                 <button
+                    node_ref=word
                     type="button"
                     class=WORD
                     aria-controls=open.id
@@ -336,7 +420,12 @@ fn WordButton(index: usize, form: String, entries: Vec<WordEntry>, ctx: Ctx) -> 
                 is_open()
                     .then(|| {
                         view! {
-                            <WordPanel form=panel_form.clone() entries=entries.clone() ctx=ctx />
+                            <WordPanel
+                                form=panel_form.clone()
+                                entries=entries.clone()
+                                ctx=ctx
+                                word=word
+                            />
                         }
                     })
             }}
@@ -345,11 +434,18 @@ fn WordButton(index: usize, form: String, entries: Vec<WordEntry>, ctx: Ctx) -> 
 }
 
 /// The open word's panel: the backdrop (phone) and the popover or sheet,
-/// mounted only while the word is open, so the popover's listeners end
-/// with it.
+/// mounted only while the word is open, so the popover's listeners (and
+/// the desktop's scroll and resize ones) end with it. `word` is the
+/// pressed button, the desktop panel's anchor.
 #[component]
-fn WordPanel(form: String, entries: Vec<WordEntry>, ctx: Ctx) -> impl IntoView {
+fn WordPanel(
+    form: String,
+    entries: Vec<WordEntry>,
+    ctx: Ctx,
+    word: NodeRef<leptos::html::Button>,
+) -> impl IntoView {
     let open = ctx.open;
+    place_on_desktop(open, word);
     let (list, more) = shown(&entries);
     let list = list.to_vec();
     let more_label = ctx.more_label;
@@ -375,6 +471,98 @@ fn WordPanel(form: String, entries: Vec<WordEntry>, ctx: Ctx) -> impl IntoView {
             </div>
         </Popover>
     }
+}
+
+/// The `sm` breakpoint (40rem), in CSS pixels: from it on, the panel is
+/// the desktop popover rather than the sheet.
+#[cfg(feature = "hydrate")]
+const SM_PX: f64 = 640.0;
+
+/// The browser only, on desktop: once the panel is laid out, place it by
+/// its word (`place_panel`); close it on any scroll (captured, so a box
+/// scrolling around the passage counts) or resize, since a fixed panel
+/// would stay put while its word moves. The listeners end with the panel
+/// (053). The phone's sheet is left as it is.
+fn place_on_desktop(open: OpenWord, word: NodeRef<leptos::html::Button>) {
+    #[cfg(feature = "hydrate")]
+    {
+        let wide = window()
+            .inner_width()
+            .ok()
+            .and_then(|w| w.as_f64())
+            .is_some_and(|w| w >= SM_PX);
+        if wide {
+            request_animation_frame(move || place_panel(open.id, word));
+            close_on_scroll_or_resize(open);
+        }
+    }
+    #[cfg(not(feature = "hydrate"))]
+    let _ = (open, word);
+}
+
+/// Measures the pressed word and the panel `id`, and sets the panel's
+/// [`TOP_VAR`] and [`LEFT_VAR`] from [`placement::place`] against the
+/// visible viewport. Nothing when either is gone.
+#[cfg(feature = "hydrate")]
+fn place_panel(id: &str, word: NodeRef<leptos::html::Button>) {
+    use placement::{Rect, Size, place};
+    use wasm_bindgen::JsCast;
+    let Some(button) = word.try_get_untracked().flatten() else {
+        return;
+    };
+    let Some(panel) = document()
+        .get_element_by_id(id)
+        .and_then(|el| el.dyn_into::<web_sys::HtmlElement>().ok())
+    else {
+        return;
+    };
+    let at = button.get_bounding_client_rect();
+    let size = panel.get_bounding_client_rect();
+    let (width, height) = crate::viewport::visible_size();
+    let word = Rect {
+        left: at.left(),
+        top: at.top(),
+        bottom: at.bottom(),
+    };
+    let panel_size = Size {
+        width: size.width(),
+        height: size.height(),
+    };
+    let pos = place(word, panel_size, Size { width, height });
+    let style = panel.style();
+    let _ = style.set_property(TOP_VAR, &format!("{}px", pos.top));
+    let _ = style.set_property(LEFT_VAR, &format!("{}px", pos.left));
+}
+
+/// Closes the open word on a window `resize` and on any `scroll`, listened
+/// to in the capture phase (an inner box's scroll does not bubble); both
+/// listeners are removed when the panel's owner is cleaned up.
+#[cfg(feature = "hydrate")]
+fn close_on_scroll_or_resize(open: OpenWord) {
+    use wasm_bindgen::{JsCast, closure::Closure};
+    let resize = window_event_listener(leptos::ev::resize, move |_| open.close());
+    let scroll = Closure::<dyn Fn()>::new(move || open.close()).into_js_value();
+    let options = web_sys::AddEventListenerOptions::new();
+    options.set_capture(true);
+    options.set_passive(true);
+    let _ = window().add_event_listener_with_callback_and_add_event_listener_options(
+        "scroll",
+        scroll.unchecked_ref(),
+        &options,
+    );
+    // The JS function is not `Send`: kept in local storage, read at cleanup
+    // (cleanups run before the owner's values are disposed).
+    let scroll = StoredValue::new_local(scroll);
+    on_cleanup(move || {
+        resize.remove();
+        scroll.try_with_value(|f| {
+            let _ = window().remove_event_listener_with_callback_and_bool(
+                "scroll",
+                f.unchecked_ref(),
+                true,
+            );
+        });
+    });
 }
 
 /// One entry: the headword in bold and its tag, the meaning under them.
@@ -411,6 +599,7 @@ fn CloseButton(open: OpenWord) -> impl IntoView {
 
 #[cfg(test)]
 mod tests {
+    use super::placement::{Pos, Rect, Size, place};
     use super::*;
 
     fn word(s: &str) -> Token {
@@ -570,6 +759,123 @@ mod tests {
         assert_eq!(more_text(Some(label), 4), "+ 4 autres");
     }
 
+    const WORD_AT: Rect = Rect {
+        left: 100.0,
+        top: 100.0,
+        bottom: 120.0,
+    };
+    const PANEL: Size = Size {
+        width: 288.0,
+        height: 200.0,
+    };
+    const DESKTOP: Size = Size {
+        width: 1280.0,
+        height: 800.0,
+    };
+
+    #[test]
+    fn the_panel_goes_8px_below_the_word_at_its_left_edge() {
+        assert_eq!(
+            place(WORD_AT, PANEL, DESKTOP),
+            Pos {
+                top: 128.0,
+                left: 100.0
+            }
+        );
+    }
+
+    #[test]
+    fn the_panel_goes_above_when_below_lacks_room_and_above_has_more() {
+        let low = Rect {
+            top: 700.0,
+            bottom: 720.0,
+            ..WORD_AT
+        };
+        assert_eq!(
+            place(low, PANEL, DESKTOP),
+            Pos {
+                top: 492.0,
+                left: 100.0
+            }
+        );
+    }
+
+    #[test]
+    fn the_panel_stays_below_when_above_has_less_room() {
+        let tall = Size {
+            height: 600.0,
+            ..PANEL
+        };
+        let word = Rect {
+            top: 300.0,
+            bottom: 320.0,
+            ..WORD_AT
+        };
+        assert_eq!(
+            place(word, tall, DESKTOP),
+            Pos {
+                top: 328.0,
+                left: 100.0
+            }
+        );
+    }
+
+    #[test]
+    fn a_panel_above_never_starts_above_the_viewport() {
+        let word = Rect {
+            top: 100.0,
+            bottom: 120.0,
+            ..WORD_AT
+        };
+        let short = Size {
+            height: 150.0,
+            ..DESKTOP
+        };
+        // Above it would start at 100 - 8 - 200 = -108.
+        assert_eq!(place(word, PANEL, short).top.to_bits(), 8.0_f64.to_bits());
+    }
+
+    #[test]
+    fn the_panel_is_clamped_16px_inside_the_left_edge() {
+        let word = Rect {
+            left: 4.0,
+            ..WORD_AT
+        };
+        assert_eq!(
+            place(word, PANEL, DESKTOP).left.to_bits(),
+            16.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn the_panel_is_clamped_16px_inside_the_right_edge() {
+        let word = Rect {
+            left: 1200.0,
+            ..WORD_AT
+        };
+        // 1280 - 288 - 16.
+        assert_eq!(
+            place(word, PANEL, DESKTOP).left.to_bits(),
+            976.0_f64.to_bits()
+        );
+    }
+
+    #[test]
+    fn a_panel_wider_than_the_viewport_starts_16px_in() {
+        let wide = Size {
+            width: 700.0,
+            ..PANEL
+        };
+        let narrow = Size {
+            width: 600.0,
+            ..DESKTOP
+        };
+        assert_eq!(
+            place(WORD_AT, wide, narrow).left.to_bits(),
+            16.0_f64.to_bits()
+        );
+    }
+
     #[test]
     fn the_word_is_underlined_only_in_a_state() {
         for class in WORD.split_whitespace() {
@@ -691,10 +997,36 @@ mod render_tests {
         assert_eq!(html.matches(r#"aria-expanded="true""#).count(), 1, "{html}");
         assert!(html.contains(r#"aria-label="Close""#), "{html}");
         assert!(html.contains("bg-black/40"), "the phone backdrop: {html}");
-        assert!(
-            html.contains("max-sm:fixed") && html.contains("sm:absolute"),
-            "{html}"
-        );
+        assert!(html.contains("max-sm:fixed"), "{html}");
+    }
+
+    /// The class tokens of the open panel (`role="dialog"`).
+    fn panel_classes(html: &str) -> Vec<&str> {
+        let at = html.find(r#"role="dialog""#).expect(html);
+        let start = html[..at].rfind('<').expect(html);
+        let tag = &html[start..at + html[at..].find('>').expect(html)];
+        let class = tag.split(r#"class=""#).nth(1).expect(tag);
+        class[..class.find('"').expect(tag)]
+            .split_whitespace()
+            .collect()
+    }
+
+    #[test]
+    fn the_desktop_panel_is_fixed_in_the_viewport_not_in_its_container() {
+        let html = rendered(Some(0), None);
+        let classes = panel_classes(&html);
+        for wanted in [
+            "sm:fixed",
+            "sm:top-(--pc-word-top)",
+            "sm:left-(--pc-word-left)",
+            "max-sm:fixed",
+            "max-sm:bottom-0",
+        ] {
+            assert!(classes.contains(&wanted), "{wanted}: {classes:?}");
+        }
+        for gone in ["sm:absolute", "sm:top-full", "sm:left-0", "sm:mt-2"] {
+            assert!(!classes.contains(&gone), "{gone}: {classes:?}");
+        }
     }
 
     #[test]
