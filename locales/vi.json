@@ -1,6 +1,9 @@
 {
   "appearance": "Giao diện",
   "back": "Quay lại",
+  "carousel_next": "Tiếp",
+  "carousel_previous": "Trước",
+  "carousel_slide": "{{ n }} trên {{ total }}",
   "close": "Đóng",
   "close_navigation": "Đóng thanh điều hướng",
   "dark": "Tối",

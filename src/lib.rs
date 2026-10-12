@@ -63,6 +63,9 @@
 //! - [`bucket_strip`] — [`bucket_strip::BucketStrip`], n labelled counts in a
 //!   row (three columns on a phone), each cell a plain box or a link on
 //!   [`button::Variant::Tile`].
+//! - [`carousel`] — [`carousel::Carousel`], a row of slides scrolled by
+//!   swipe, the arrow keys or Previous and Next buttons (shown once
+//!   hydrated), each slide named "n of N"; native scroll-snap, no autoplay.
 //! - [`slider`] — [`slider::Slider`], a native range slider with its value
 //!   shown at the right, the value held inside `[min, max]`.
 //! - [`session_header`] — [`session_header::SessionHeader`], a counter
@@ -70,6 +73,7 @@
 
 pub mod bucket_strip;
 pub mod button;
+pub mod carousel;
 mod catalogue;
 pub mod dialog;
 pub mod env_badge;
@@ -106,6 +110,7 @@ pub use button::{
     Button, ChoiceCardOption, ChoiceCards, Disclosed, Disclosure, DisclosureButton, LinkButton,
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
 };
+pub use carousel::Carousel;
 pub use dialog::{Dialog, DialogSection};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use footer::{Footer, FooterLink};

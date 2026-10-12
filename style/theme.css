@@ -203,12 +203,18 @@
   .pc-motion-slide-bottom[data-state="open"] { opacity: 1; transform: translateY(0); }
   .pc-motion-slide-left[data-state="open"],
   .pc-motion-slide-right[data-state="open"] { opacity: 1; transform: translateX(0); }
+
+  /* `crate::carousel::Carousel`'s scroller: a button press glides to the
+     next slide. Turned off below for reduced motion; the swipe and the
+     arrow keys are the browser's own. */
+  .pc-carousel { scroll-behavior: smooth; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition: none !important; animation: none !important; }
   /* `pc-motion-*` keeps a quick opacity crossfade; its transform half drops. */
   .pc-motion { transition-property: opacity !important; transition-duration: var(--dur-fast) !important; }
+  .pc-carousel { scroll-behavior: auto; }
 }
 
 /* The gallery's live toggle: the same carve-out as reduced motion above,
@@ -218,3 +224,6 @@
   transition-property: opacity !important;
   transition-duration: var(--dur-fast) !important;
 }
+
+/* The same carve-out for `pc-carousel`, under the gallery's live toggle. */
+[data-motion="reduce"] .pc-carousel { scroll-behavior: auto; }

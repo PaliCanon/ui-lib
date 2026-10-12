@@ -24,6 +24,8 @@ pub enum IconName {
     /// A chevron pointing right: a [`crate::menu::MenuItem::Submenu`]'s entry,
     /// on the right.
     ChevronRight,
+    /// A chevron pointing left: a carousel's Previous button.
+    ChevronLeft,
     /// A check mark: the selected choice of a [`crate::menu::MenuItem::Choice`].
     Check,
     /// Three stacked lines: the gallery's menu page.
@@ -50,6 +52,7 @@ fn paths(name: IconName) -> &'static [&'static str] {
     match name {
         IconName::ArrowLeft => &["M19 12H5", "M11 18l-6-6 6-6"],
         IconName::ChevronRight => &["M9 18l6-6-6-6"],
+        IconName::ChevronLeft => &["M15 18l-6-6 6-6"],
         IconName::Check => &["M20 6L9 17l-5-5"],
         IconName::Menu => &["M3 12h18", "M3 6h18", "M3 18h18"],
         IconName::Popover => &[
@@ -190,6 +193,7 @@ mod tests {
             IconName::Monitor,
             IconName::ArrowLeft,
             IconName::ChevronRight,
+            IconName::ChevronLeft,
             IconName::Check,
             IconName::Menu,
             IconName::Popover,
@@ -202,5 +206,12 @@ mod tests {
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }
+    }
+
+    #[test]
+    fn chevron_left_mirrors_chevron_right() {
+        let out = Owner::new().with(|| view! { <Icon name=IconName::ChevronLeft /> }.to_html());
+        assert!(out.contains(r#"d="M15 18l-6-6 6-6""#), "{out}");
+        assert!(out.contains(r#"aria-hidden="true""#), "{out}");
     }
 }

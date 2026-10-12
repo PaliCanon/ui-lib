@@ -53,6 +53,10 @@ pub fn Button(
     /// Layout classes added to the variant's (margin, width, position) — never colours.
     #[prop(optional, into)]
     layout: String,
+    /// The id of what this button acts on, as `aria-controls` (a carousel's
+    /// Previous and Next scroll its strip); absent, no attribute.
+    #[prop(optional, into)]
+    controls: Option<String>,
     /// Disabled while this is true.
     #[prop(optional, into)]
     disabled: Option<Signal<bool>>,
@@ -67,6 +71,7 @@ pub fn Button(
             type="button"
             class=classes(variant, size, &layout)
             aria-label=label.clone()
+            aria-controls=controls
             title=label
             disabled=move || is_disabled(disabled)
             on:click=move |ev| on_click.run(ev)

@@ -1,6 +1,9 @@
 {
   "appearance": "Appearance",
   "back": "Back",
+  "carousel_next": "Next",
+  "carousel_previous": "Previous",
+  "carousel_slide": "{{ n }} of {{ total }}",
   "close": "Close",
   "close_navigation": "Close navigation",
   "dark": "Dark",

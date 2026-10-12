@@ -21,6 +21,25 @@ fn a_button_runs_an_action_and_is_named() {
 }
 
 #[test]
+fn a_button_with_controls_names_what_it_controls() {
+    let out = html(|| {
+        view! {
+            <Button controls="strip" label="Next" on_click=|_| ()>
+                "x"
+            </Button>
+        }
+        .into_any()
+    });
+    assert!(out.contains(r#"aria-controls="strip""#), "{out}");
+}
+
+#[test]
+fn a_button_without_controls_has_no_aria_controls() {
+    let out = html(|| view! { <Button on_click=|_| ()>"x"</Button> }.into_any());
+    assert!(!out.contains("aria-controls"), "{out}");
+}
+
+#[test]
 fn a_disabled_button_says_so() {
     let out = html(|| {
         view! {

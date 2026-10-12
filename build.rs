@@ -18,9 +18,12 @@ mod placeholders;
 const LOCALES: [&str; 3] = ["en", "fr", "vi"];
 
 fn main() {
-    let config = Config::new(LOCALES[0])
+    let mut config = Config::new(LOCALES[0])
         .and_then(|config| config.add_locales(&LOCALES[1..]))
         .expect("the locale list is valid");
+    // `td_string!` with `{{ n }}` placeholders (the carousel's "n of N")
+    // needs the values to implement `Display`.
+    config.options = config.options.interpolate_display(true);
     let parsed = parse_locales(None, config).expect("locales/*.json parse");
     for file in parsed.tracked_files.iter().flatten() {
         println!("cargo::rerun-if-changed={file}");

@@ -82,4 +82,25 @@ mod tests {
             assert_eq!(label.get(), "Retour");
         });
     }
+
+    #[test]
+    fn carousel_strings_in_three_languages() {
+        let previous: Vec<&str> = Language::ALL
+            .into_iter()
+            .map(|language| td_string!(Locale::from(language), carousel_previous))
+            .collect();
+        assert_eq!(previous, ["Previous", "Précédent", "Trước"]);
+        let next: Vec<&str> = Language::ALL
+            .into_iter()
+            .map(|language| td_string!(Locale::from(language), carousel_next))
+            .collect();
+        assert_eq!(next, ["Next", "Suivant", "Tiếp"]);
+        let slide: Vec<String> = Language::ALL
+            .into_iter()
+            .map(|language| {
+                td_string!(Locale::from(language), carousel_slide, n = 2, total = 5).to_string()
+            })
+            .collect();
+        assert_eq!(slide, ["2 of 5", "2 sur 5", "2 trên 5"]);
+    }
 }
