@@ -11,3 +11,4 @@ Design to settle (consensus): a `palicanon_ui_lib::hydrate(App)` entry that, bef
 | Step | Result | Output |
 | --- | --- | --- |
 | Reproduce | done | orchestrator, 2026-10-14, headless Chrome CDP 390×844 on https://search.palicanon.app/?q=anger: `panicked at tachys-0.2.19/src/hydration.rs:227:9`, uncaught wasm `unreachable`; the decoy `<a>` is `<body>`'s first child in the served HTML |
+| Probe | done | orchestrator, 2026-10-14, CDP Fetch rewrite of the HTML response of https://search.palicanon.app/?q=anger: as served (decoy link + beacon): 1 panic; with the decoy `<a>` and the two Cloudflare scripts stripped before parsing: 0 panic, hydration completes. Cause confirmed. |
