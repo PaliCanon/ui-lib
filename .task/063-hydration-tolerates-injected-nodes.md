@@ -14,6 +14,8 @@ Design to settle (consensus): a `palicanon_ui_lib::hydrate(App)` entry that, bef
 | Probe | done | orchestrator, 2026-10-14, CDP Fetch rewrite of the HTML response of https://search.palicanon.app/?q=anger: as served (decoy link + beacon): 1 panic; with the decoy `<a>` and the two Cloudflare scripts stripped before parsing: 0 panic, hydration completes. Cause confirmed. |
 | Email Obfuscation | ruled | user, 2026-10-15: "La garder" — the zone setting stays on; the limit stands in the design (no hydration fix tolerates an address rewritten inside the root); T3 visits /privacy and fails on a panic. |
 | Consensus | handed back | design v4 (root element `pc-app` + `palicanon_ui_lib::hydrate` = `hydrate_from(root)`, no node removed: only the leading decoy breaks hydration, probe decoy-last 0 panic); T1 wasm-bindgen-test in ui-lib CI, T2 missing root named, T3 headless-Chrome step in each site's rollout-check (/, /?q=, /privacy); rollout ui-lib v0.1.2 → PRs search-front and learn-pali → dev checks → tags v0.1.1 each (learn.palicanon.app is broken too). Voices: deep every round; gemini 503/ECONNRESET/429, sage 504 twice; simplify unanswered. Follow-up d0a3da22bb4254c (hashed pkg names, rank 4). Re-rank 7 → 8: a new wasm test harness in ui-lib CI, two production rollouts. User validation of v4 pending. |
+| Build | done (T1 deviates, to rule) | lane:hydration (opus), 2026-10-15, branch fix/hydration-root: db87047 feat(hydration) (APP_ROOT_ID, HydrationRoot, MissingRoot, app_root, hydrate; tests/hydration.rs; README row), 348b68d ci (job test-browser: taiki-e/install-action wasm-bindgen@<Cargo.lock version> + ubuntu-latest's $CHROMEWEBDRIVER; not run on a runner yet). Reds: E0425 (native), E0432 (wasm), T1 with hydrate_body: `panicked at tachys-0.2.19/src/hydration.rs:184:9: Unrecoverable hydration error` (expected <button>, found Text). T1's markup is the ssr render in tests/fixtures/hydration-counter.html, checked by a native test (to_html of a component panics without ssr: tachys any_attribute.rs:332). Checks: fmt 0, leptosfmt 0, clippy ssr 0, clippy hydrate wasm32 0, test ssr 0 (lib 423 passed, tests/hydration 1 passed), wasm test 0 (3 passed; wasm-bindgen-test-runner 0.2.129, chromedriver 155.0.8059.40, Chrome 155.0.8059.40), rustdoc ssr 0; rustdoc hydrate wasm32 101 on pre-existing src/language.rs:3,17. Process #6501 |
+| Close | done | lane:hydration, process #6503 (seven errors, @gemini:role-process) |
 
 ## Design
 Viewer: ui-lib-063-hydration-tolerant/design v4, validated by the user 2026-10-15 ("Validé"); consensus summary discussion #6487.
@@ -123,3 +125,10 @@ flowchart TB
   TESTS --> ROLL```
 
 | Validation | done | user, 2026-10-15: "Validé" (v4) |
+
+## Lanes
+| File | Tests | Code | Done |
+| --- | --- | --- | --- |
+| src/hydration.rs, src/lib.rs, Cargo.toml, README.md | src/hydration.rs tests (root id, bare div, MissingRoot message); red E0425 | APP_ROOT_ID, HydrationRoot, MissingRoot, app_root, hydrate | db87047 |
+| tests/hydration.rs, tests/fixtures/hydration-counter.html | T1 hydrates past the decoy and beacon, T2 missing root named, root found by id, fixture = ssr render; red E0432, then the hydrate_body panic | (the tests) | db87047 |
+| .github/workflows/ci.yml | job test-browser (headless Chrome) | — | 348b68d, unproven on a runner |
