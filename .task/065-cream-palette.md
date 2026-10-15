@@ -11,7 +11,7 @@ Open: the release number; whether the comments and docs that name linen change w
 ## Workflow
 ```mermaid
 flowchart LR
-  Define["Define ✓ v2 validated"]:::done --> Plan["Plan ✓ one slice"]:::done --> Build["Build ✓"]:::done --> Verify["Verify ✓ 430 tests"]:::done --> Review["Review ✓ 3 rounds"]:::done --> Check["Check ✓ user"]:::done --> Merge:::todo --> Retro:::todo
+  Define["Define ✓ v2 validated"]:::done --> Plan["Plan ✓ one slice"]:::done --> Build["Build ✓"]:::done --> Verify["Verify ✓ 430 tests"]:::done --> Review["Review ✓ 3 rounds"]:::done --> Check["Check ✓ user"]:::done --> Merge["Merge ✓ 52c050a v0.2.0"]:::done --> Retro:::todo
   classDef doing fill:#f9a825,color:#000
   classDef done fill:#2e7d32,color:#fff
   classDef todo fill:#9e9e9e,color:#fff
@@ -32,6 +32,7 @@ flowchart LR
 | Fix round 2 | done | lane:fix2 b26ce2e: LIGHT_TOKENS (the design's 26), each light block equals it exactly, one light rule; red by three mutations; 430 tests |
 | Review round 3 | done | deep #7370: no vacuous pass; formatting-level bypasses and the source comparison open → the user |
 | Check (user) | done | user, 2026-10-15: "merge la lib ui" — after the gallery on :3065 (wt/065, ui-lib b26ce2e), cream served (#fdf6e3); the round-3 open points accepted |
+| Merge | done | 52c050a on main (squash), tagged v0.2.0 on it, pushed; the services' bumps next (learn-pali, search-front) |
 
 ## Design
 Viewer: ui-lib-065-cream-palette/design (dcfbe722603094c), v3 — v2 validated by the user 2026-10-15; v3 = review round 1's wording (the dark block's assertion moves to 066).
@@ -98,3 +99,4 @@ Review entry dfea62e21910546; deep #7285 and sage #7300 (independent, Deep outsi
 | R6 | deep: line and card-edge cues weaker (line on card 1.11, card-edge on card 1.25) | ruled out as a test: a visual judgment, shown to the user at Check (it was already one of the three points to look at) | |
 
 ## Merge
+52c050a on main, tag v0.2.0, 2026-10-15.
