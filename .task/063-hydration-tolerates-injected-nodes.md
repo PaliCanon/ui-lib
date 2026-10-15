@@ -1,6 +1,6 @@
 # 063 Hydration tolerates the nodes Cloudflare injects
 
-status: design · rank: 7 · level: hard · type: bug · request: palisearch 048 (user, 2026-10-14: "Garder les deux, corriger le code") · session: ui-lib-063-hydration-tolerant · process: ../../docs/workflows/process-bug.mmd · after: []
+status: design · rank: 8 · level: hard · type: bug · request: palisearch 048 (user, 2026-10-14: "Garder les deux, corriger le code") · session: ui-lib-063-hydration-tolerant · process: ../../docs/workflows/process-bug.mmd · after: []
 
 ## Summary
 Rank: difficulty 5 (the hydration entry of every site, a DOM pre-pass before `hydrate_body`, a browser-level regression test, two consumers re-pinned), impact 8 (production search and learn dev are dead in a browser until it ships) → 7. Level hard: production, every Leptos site.
@@ -12,3 +12,5 @@ Design to settle (consensus): a `palicanon_ui_lib::hydrate(App)` entry that, bef
 | --- | --- | --- |
 | Reproduce | done | orchestrator, 2026-10-14, headless Chrome CDP 390×844 on https://search.palicanon.app/?q=anger: `panicked at tachys-0.2.19/src/hydration.rs:227:9`, uncaught wasm `unreachable`; the decoy `<a>` is `<body>`'s first child in the served HTML |
 | Probe | done | orchestrator, 2026-10-14, CDP Fetch rewrite of the HTML response of https://search.palicanon.app/?q=anger: as served (decoy link + beacon): 1 panic; with the decoy `<a>` and the two Cloudflare scripts stripped before parsing: 0 panic, hydration completes. Cause confirmed. |
+| Email Obfuscation | ruled | user, 2026-10-15: "La garder" — the zone setting stays on; the limit stands in the design (no hydration fix tolerates an address rewritten inside the root); T3 visits /privacy and fails on a panic. |
+| Consensus | handed back | design v4 (root element `pc-app` + `palicanon_ui_lib::hydrate` = `hydrate_from(root)`, no node removed: only the leading decoy breaks hydration, probe decoy-last 0 panic); T1 wasm-bindgen-test in ui-lib CI, T2 missing root named, T3 headless-Chrome step in each site's rollout-check (/, /?q=, /privacy); rollout ui-lib v0.1.2 → PRs search-front and learn-pali → dev checks → tags v0.1.1 each (learn.palicanon.app is broken too). Voices: deep every round; gemini 503/ECONNRESET/429, sage 504 twice; simplify unanswered. Follow-up d0a3da22bb4254c (hashed pkg names, rank 4). Re-rank 7 → 8: a new wasm test harness in ui-lib CI, two production rollouts. User validation of v4 pending. |
