@@ -1,4 +1,4 @@
-//! The reading theme: Light (linen page, parchment rail, white cards, bronze accent), Dark, or System
+//! The reading theme: Light (cream page, parchment rail and cards, deep gold accent), Dark, or System
 //! (the default: it follows the device's own `prefers-color-scheme`).
 //!
 //! The choice is [`persisted`](fn@crate::persisted) under `pc_theme`, held by
@@ -35,7 +35,7 @@ pub enum Theme {
     /// attribute.
     #[default]
     System,
-    /// The light palette (linen, parchment rail, bronze): `data-theme="light"`.
+    /// The light palette (cream, parchment rail and cards, deep gold): `data-theme="light"`.
     Light,
     /// `data-theme="dark"`.
     Dark,
@@ -582,6 +582,217 @@ mod gold_text_contrast {
                 "{name}: a background is missing"
             );
         }
+    }
+
+    /// Every `--ps-*` declaration of a block, in order: (token, value).
+    fn declarations(block: &str) -> Vec<(&str, &str)> {
+        block
+            .split(';')
+            .filter_map(|part| {
+                let (name, value) = part[part.find("--ps-")?..].split_once(':')?;
+                Some((name.trim(), value.trim()))
+            })
+            .collect()
+    }
+
+    const LIGHT_BLOCKS: [(&str, &str); 2] = [BLOCKS[1], BLOCKS[2]];
+    const RESTING: [&str; 5] = [
+        "--ps-page",
+        "--ps-rail",
+        "--ps-card",
+        "--ps-chip",
+        "--ps-field",
+    ];
+    const RESTING_TEXT: [&str; 6] = [
+        "--ps-heading",
+        "--ps-ink",
+        "--ps-muted",
+        "--ps-subtle",
+        "--ps-gold-text",
+        "--ps-danger",
+    ];
+
+    /// The ratio of two tokens of a block, `None` when one is not a hex value
+    /// (the dark block's `primary` is a `var()`).
+    fn pair(b: &str, text: &str, surface: &str) -> Option<f64> {
+        Some(ratio(hex(b, text)?, hex(b, surface)?))
+    }
+
+    fn assert_aa(name: &str, b: &str, texts: &[&str], surfaces: &[&str]) {
+        for text in texts {
+            for surface in surfaces {
+                let r = pair(b, text, surface)
+                    .unwrap_or_else(|| panic!("{name}: {text} or {surface} is not a hex value"));
+                assert!(
+                    r >= 4.5,
+                    "{name}: {text} on {surface} is {r:.2}:1, below 4.5"
+                );
+            }
+        }
+    }
+
+    /// The light rule opens with the root selector and the subtree selector
+    /// (a `<span data-theme="light">` nested in a dark page needs the latter).
+    const LIGHT_RULE_OPENER: &str = ":root[data-theme=\"light\"],\n[data-theme=\"light\"] {";
+
+    #[test]
+    fn the_light_rule_holds_both_selectors() {
+        assert!(
+            CSS.contains(LIGHT_RULE_OPENER),
+            "theme.css lost a light selector"
+        );
+    }
+
+    /// The design's light tokens (task 065, palicanon.app's cream): the one
+    /// place a value change is reviewed. Names carry the `--ps-` prefix and
+    /// values are written as in `theme.css`.
+    const LIGHT_TOKENS: [(&str, &str); 26] = [
+        ("--ps-page", "#fdf6e3"),
+        ("--ps-rail", "#f5ecd7"),
+        ("--ps-primary", "#f0e5cc"),
+        ("--ps-primary-hover", "#e8dab9"),
+        ("--ps-on-primary", "#6e4a08"),
+        ("--ps-card", "#f5ecd7"),
+        ("--ps-card-edge", "#e3d4b4"),
+        ("--ps-chip", "#f0e5cc"),
+        ("--ps-chip-hover", "#e8dab9"),
+        ("--ps-line", "#ede0c8"),
+        ("--ps-field", "#fffaf0"),
+        ("--ps-heading", "#2c1810"),
+        ("--ps-ink", "#3d2a1e"),
+        ("--ps-muted", "#5c4a3d"),
+        ("--ps-subtle", "#6f6152"),
+        ("--ps-gold", "#84590a"),
+        ("--ps-gold-hover", "#6e4a08"),
+        ("--ps-gold-text", "#7e5509"),
+        ("--ps-on-gold", "#fffaf0"),
+        ("--ps-mark", "rgb(232 163 23 / 0.22)"),
+        ("--ps-danger", "#b03a3a"),
+        ("--ps-glass", "rgb(245 236 215 / 0.8)"),
+        ("--ps-glow", "rgb(184 125 15 / 0.18)"),
+        ("--ps-halo", "rgb(184 125 15 / 0.1)"),
+        ("--ps-card-from", "#fffaf0"),
+        ("--ps-card-to", "#f5ecd7"),
+    ];
+
+    fn squeeze(value: &str) -> String {
+        value.split_whitespace().collect::<Vec<_>>().join(" ")
+    }
+
+    /// Both light blocks declare exactly the design's 26 names (no extra,
+    /// none missing, none declared twice) with exactly its values.
+    #[test]
+    fn each_light_block_is_the_designs_table() {
+        let mut expected: Vec<&str> = LIGHT_TOKENS.iter().map(|(n, _)| *n).collect();
+        expected.sort_unstable();
+        for (name, opener) in LIGHT_BLOCKS {
+            let decls = declarations(block(CSS, opener));
+            let mut names: Vec<&str> = decls.iter().map(|(n, _)| *n).collect();
+            names.sort_unstable();
+            assert_eq!(names, expected, "{name}: not the design's token names");
+            for (token, want) in LIGHT_TOKENS {
+                let (_, got) = decls.iter().find(|(n, _)| *n == token).expect("present");
+                assert_eq!(
+                    squeeze(got),
+                    want,
+                    "{name}: {token} differs from the design"
+                );
+            }
+        }
+    }
+
+    /// A second light rule appended later would win the cascade while the
+    /// tests above read only the first: each opener appears exactly once.
+    #[test]
+    fn there_is_one_light_rule() {
+        for opener in [LIGHT_RULE_OPENER, BLOCKS[2].1] {
+            assert_eq!(
+                CSS.matches(opener).count(),
+                1,
+                "theme.css holds {opener:?} other than once"
+            );
+        }
+    }
+
+    #[test]
+    fn the_two_light_blocks_are_equal() {
+        let data_theme = declarations(block(CSS, LIGHT_BLOCKS[0].1));
+        let media = declarations(block(CSS, LIGHT_BLOCKS[1].1));
+        for (token, value) in &data_theme {
+            let other = media.iter().find(|(t, _)| t == token);
+            assert_eq!(
+                other.map(|(_, v)| v),
+                Some(value),
+                "{token}: the media query block differs from the data-theme block"
+            );
+        }
+        assert_eq!(
+            media.len(),
+            data_theme.len(),
+            "the two light blocks hold the same token set"
+        );
+    }
+
+    #[test]
+    fn text_reaches_aa_on_every_resting_surface() {
+        for (name, opener) in LIGHT_BLOCKS {
+            let b = block(CSS, opener);
+            assert_aa(name, b, &RESTING_TEXT, &RESTING);
+            assert_aa(
+                name,
+                b,
+                &["--ps-on-gold"],
+                &["--ps-gold", "--ps-gold-hover"],
+            );
+            assert_aa(name, b, &["--ps-on-primary"], &["--ps-primary"]);
+        }
+    }
+
+    /// Text on the hover surfaces (`chip-hover`, `primary-hover`). `subtle` and
+    /// `danger` are not asserted here: no text of those colours sits on a hover
+    /// surface.
+    #[test]
+    fn text_on_hover_surfaces_reaches_aa() {
+        let texts = [
+            "--ps-heading",
+            "--ps-ink",
+            "--ps-muted",
+            "--ps-gold-text",
+            "--ps-on-primary",
+        ];
+        for (name, opener) in LIGHT_BLOCKS {
+            let b = block(CSS, opener);
+            assert_aa(name, b, &texts, &["--ps-chip-hover", "--ps-primary-hover"]);
+        }
+    }
+
+    /// Not an assertion: the dark block is unchanged by the cream palette, so
+    /// its matrix is printed (`--nocapture`) for whoever wants to read it.
+    #[test]
+    fn dark_matrix_is_printed() {
+        let b = block(CSS, BLOCKS[0].1);
+        for text in RESTING_TEXT {
+            for surface in RESTING {
+                match pair(b, text, surface) {
+                    Some(r) => eprintln!("dark {text} on {surface}: {r:.2}:1 {}", flag(r)),
+                    None => eprintln!("dark {text} on {surface}: not a hex value"),
+                }
+            }
+        }
+        for (text, surface) in [
+            ("--ps-on-gold", "--ps-gold"),
+            ("--ps-on-gold", "--ps-gold-hover"),
+            ("--ps-on-primary", "--ps-primary"),
+        ] {
+            match pair(b, text, surface) {
+                Some(r) => eprintln!("dark {text} on {surface}: {r:.2}:1 {}", flag(r)),
+                None => eprintln!("dark {text} on {surface}: not a hex value (var)"),
+            }
+        }
+    }
+
+    fn flag(r: f64) -> &'static str {
+        if r >= 4.5 { "" } else { "BELOW 4.5" }
     }
 
     #[test]

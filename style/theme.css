@@ -1,12 +1,13 @@
 /* PaliCanon identity: the two reading themes of the Tipiṭaka iOS app (dark
-   and the former sepia, now called light), plus system (follows the
-   device). As CSS variables swapped by <html data-theme>, and exposed to
-   Tailwind through @theme inline (bg-page, text-gold, …).
+   and the former sepia, now called light: the cream of palicanon.app), plus
+   system (follows the device). As CSS variables swapped by <html
+   data-theme>, and exposed to Tailwind through @theme inline (bg-page,
+   text-gold, …).
 
    Selection order:
    - data-theme="dark"  -> dark tokens (also the default: no attribute and
      no light preference).
-   - data-theme="light" -> light tokens (the former sepia palette).
+   - data-theme="light" -> light tokens (palicanon.app's cream palette).
    - no data-theme      -> prefers-color-scheme decides: light media query
      matches light tokens, otherwise the :root default (dark) applies.
 
@@ -51,33 +52,33 @@
 }
 :root[data-theme="light"],
 [data-theme="light"] {
-  /* Light: bright linen page, parchment rail, white cards, mineral-black headings, dark sepia text, antique-gold accent #9E7B22 (user, 2026-10-04: back to gold). */
-  --ps-page: #f8f6f0;
-  --ps-rail: #eee9de;
-  --ps-primary: #f4e9cc;
-  --ps-primary-hover: #ecdcb2;
-  --ps-on-primary: #6e5410;
-  --ps-card: #ffffff;
-  --ps-card-edge: #e3dccd;
-  --ps-chip: #f3efe6;
-  --ps-chip-hover: #ece7dc;
-  --ps-line: #e3dccd;
-  --ps-field: #ffffff;
-  --ps-heading: #1d1c1a;
-  --ps-ink: #4a463f;
-  --ps-muted: #4a463f;
-  --ps-subtle: #6b665d;
-  --ps-gold: #9e7b22;
-  --ps-gold-hover: #8c6d18;
-  --ps-gold-text: #7a5f14;
-  --ps-on-gold: #ffffff;
-  --ps-mark: rgb(212 175 55 / 0.25);
-  --ps-danger: #a83535;
-  --ps-glass: rgb(255 255 255 / 0.8);
-  --ps-glow: rgb(212 175 55 / 0.2);
-  --ps-halo: rgb(212 175 55 / 0.12);
-  --ps-card-from: #ffffff;
-  --ps-card-to: #f8f6f0;
+  /* Light: palicanon.app's cream. Cream page, parchment cards and rail, dark-brown ink, deep gold (user, 2026-10-15, task 065). */
+  --ps-page: #fdf6e3;
+  --ps-rail: #f5ecd7;
+  --ps-primary: #f0e5cc;
+  --ps-primary-hover: #e8dab9;
+  --ps-on-primary: #6e4a08;
+  --ps-card: #f5ecd7;
+  --ps-card-edge: #e3d4b4;
+  --ps-chip: #f0e5cc;
+  --ps-chip-hover: #e8dab9;
+  --ps-line: #ede0c8;
+  --ps-field: #fffaf0;
+  --ps-heading: #2c1810;
+  --ps-ink: #3d2a1e;
+  --ps-muted: #5c4a3d;
+  --ps-subtle: #6f6152;
+  --ps-gold: #84590a;
+  --ps-gold-hover: #6e4a08;
+  --ps-gold-text: #7e5509;
+  --ps-on-gold: #fffaf0;
+  --ps-mark: rgb(232 163 23 / 0.22);
+  --ps-danger: #b03a3a;
+  --ps-glass: rgb(245 236 215 / 0.8);
+  --ps-glow: rgb(184 125 15 / 0.18);
+  --ps-halo: rgb(184 125 15 / 0.1);
+  --ps-card-from: #fffaf0;
+  --ps-card-to: #f5ecd7;
   color-scheme: light;
 }
 
@@ -85,32 +86,32 @@
    only the light preference needs to override it. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
-    --ps-page: #f8f6f0;
-  --ps-rail: #eee9de;
-  --ps-primary: #f4e9cc;
-  --ps-primary-hover: #ecdcb2;
-  --ps-on-primary: #6e5410;
-    --ps-card: #ffffff;
-    --ps-card-edge: #e3dccd;
-    --ps-chip: #f3efe6;
-    --ps-chip-hover: #ece7dc;
-    --ps-line: #e3dccd;
-    --ps-field: #ffffff;
-    --ps-heading: #1d1c1a;
-    --ps-ink: #4a463f;
-    --ps-muted: #4a463f;
-    --ps-subtle: #6b665d;
-    --ps-gold: #9e7b22;
-    --ps-gold-hover: #8c6d18;
-    --ps-gold-text: #7a5f14;
-    --ps-on-gold: #ffffff;
-    --ps-mark: rgb(212 175 55 / 0.25);
-    --ps-danger: #a83535;
-    --ps-glass: rgb(255 255 255 / 0.8);
-    --ps-glow: rgb(212 175 55 / 0.2);
-    --ps-halo: rgb(212 175 55 / 0.12);
-    --ps-card-from: #ffffff;
-    --ps-card-to: #f8f6f0;
+    --ps-page: #fdf6e3;
+    --ps-rail: #f5ecd7;
+    --ps-primary: #f0e5cc;
+    --ps-primary-hover: #e8dab9;
+    --ps-on-primary: #6e4a08;
+    --ps-card: #f5ecd7;
+    --ps-card-edge: #e3d4b4;
+    --ps-chip: #f0e5cc;
+    --ps-chip-hover: #e8dab9;
+    --ps-line: #ede0c8;
+    --ps-field: #fffaf0;
+    --ps-heading: #2c1810;
+    --ps-ink: #3d2a1e;
+    --ps-muted: #5c4a3d;
+    --ps-subtle: #6f6152;
+    --ps-gold: #84590a;
+    --ps-gold-hover: #6e4a08;
+    --ps-gold-text: #7e5509;
+    --ps-on-gold: #fffaf0;
+    --ps-mark: rgb(232 163 23 / 0.22);
+    --ps-danger: #b03a3a;
+    --ps-glass: rgb(245 236 215 / 0.8);
+    --ps-glow: rgb(184 125 15 / 0.18);
+    --ps-halo: rgb(184 125 15 / 0.1);
+    --ps-card-from: #fffaf0;
+    --ps-card-to: #f5ecd7;
     color-scheme: light;
   }
 }
