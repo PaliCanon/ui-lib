@@ -52,6 +52,28 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - run: cargo test --locked --features ssr
 
+  # tests/hydration.rs in a real browser (task 063): hydration past the
+  # nodes Cloudflare injects into <body>, which no SSR test can see.
+  # wasm-bindgen-test-runner drives a headless Chrome through chromedriver;
+  # ubuntu-latest ships Google Chrome and its matching chromedriver
+  # ($CHROMEWEBDRIVER). The runner must be the wasm-bindgen of Cargo.lock.
+  test-browser:
+    name: test (hydrate, headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - id: wasm-bindgen
+        run: echo "version=$(cargo pkgid --locked wasm-bindgen | sed 's/.*@//')" >> "$GITHUB_OUTPUT"
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
+      - run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test --locked --features hydrate --target wasm32-unknown-unknown --test hydration
+        env:
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+
   docs:
     name: rustdoc
     runs-on: ubuntu-latest
