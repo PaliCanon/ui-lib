@@ -1,6 +1,6 @@
 # 065 the light theme is palicanon.app's cream
 
-status: review · rank: 5 · level: standard · type: feature · request: user, 2026-10-15 ("je préfère la couleur crème du website palicanon") · session: ui-lib-065-cream-palette · repos: ui-lib, ui-lab (gallery); bumps in learn-pali, search-front · process: ../../docs/workflows/development-process.mmd
+status: merged · rank: 5 · level: standard · type: feature · request: user, 2026-10-15 ("je préfère la couleur crème du website palicanon") · session: ui-lib-065-cream-palette · repos: ui-lib, ui-lab (gallery); bumps in learn-pali, search-front · process: ../../docs/workflows/development-process.mmd
 
 ## Summary
 Re-ranked 5 at review round 2 (a second round). Rank (rank.md): difficulty 3 (25 tokens: 20 copied from a known palette with the same names, 5 derived; contrast measured), impact 6 (the look of every site in light; a release the services bump) → 4.
@@ -11,7 +11,7 @@ Open: the release number; whether the comments and docs that name linen change w
 ## Workflow
 ```mermaid
 flowchart LR
-  Define["Define ✓ v2 validated"]:::done --> Plan["Plan ✓ one slice"]:::done --> Build["Build ✓"]:::done --> Verify["Verify ✓ 430 tests"]:::done --> Review["Review ✓ 3 rounds"]:::done --> Check["Check ✓ user"]:::done --> Merge["Merge ✓ 52c050a v0.2.0"]:::done --> Retro:::todo
+  Define["Define ✓ v2 validated"]:::done --> Plan["Plan ✓ one slice"]:::done --> Build["Build ✓"]:::done --> Verify["Verify ✓ 430 tests"]:::done --> Review["Review ✓ 3 rounds"]:::done --> Check["Check ✓ user"]:::done --> Merge["Merge ✓ 52c050a v0.2.0"]:::done --> Retro["Retro ✓ 2 lessons"]:::done
   classDef doing fill:#f9a825,color:#000
   classDef done fill:#2e7d32,color:#fff
   classDef todo fill:#9e9e9e,color:#fff
@@ -33,6 +33,7 @@ flowchart LR
 | Review round 3 | done | deep #7370: no vacuous pass; formatting-level bypasses and the source comparison open → the user |
 | Check (user) | done | user, 2026-10-15: "merge la lib ui" — after the gallery on :3065 (wt/065, ui-lib b26ce2e), cream served (#fdf6e3); the round-3 open points accepted |
 | Merge | done | 52c050a on main (squash), tagged v0.2.0 on it, pushed; the services' bumps next (learn-pali, search-front) |
+| Retro | done | retro #7427 (8 errors), gemini #7430 (third try). Lessons: a-relative-worktree-path-landed-inside-the-repo, each-guard-test-names-the-mutation-it-catches; docs 82b520d (git.md: absolute worktree paths, another session's edit set aside by path, servers stopped by pid), 913f555 (build.md: a guard test red by mutating what it guards) |
 
 ## Design
 Viewer: ui-lib-065-cream-palette/design (dcfbe722603094c), v3 — v2 validated by the user 2026-10-15; v3 = review round 1's wording (the dark block's assertion moves to 066).
@@ -100,3 +101,6 @@ Review entry dfea62e21910546; deep #7285 and sage #7300 (independent, Deep outsi
 
 ## Merge
 52c050a on main, tag v0.2.0, 2026-10-15.
+
+## Retro
+Retro 065 validated 2026-10-15 (retro-discussion df4dbcea346e445). Two lessons: worktree paths are absolute, another session's uncommitted edit is set aside by path and restored identical, a server is stopped by its pid after reading its cwd; a guard test is shown red by mutating what it guards and names what it does not catch. Not carried: Gemini's suggestions of new scripts (a worktree script, an ephemeral clone per task, a token pipeline) — the rules above cover the errors without new tooling; the dark block is task 066; LIGHT_TOKENS stands as the reference (the old site retires).
