@@ -38,6 +38,13 @@ tokio = { version = "1", features = ["rt"] }
 # The placeholder-parity check's own tests (build/placeholders.rs).
 serde_json = "1"
 
+# The browser test of hydration behind Cloudflare (tests/hydration.rs, task
+# 063), run by wasm-bindgen-test-runner in a headless Chrome; the extra
+# web-sys features build the test's documents.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+web-sys = { version = "0.3", features = ["DomImplementation"] }
+
 [features]
 ssr = ["leptos/ssr", "dep:http"]
 hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:web-sys"]

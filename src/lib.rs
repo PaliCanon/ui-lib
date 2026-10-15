@@ -44,6 +44,10 @@
 //!   on a phone stacked and centred, from `sm` a 1fr/auto/1fr grid — the
 //!   links centred on the full width, the credits at the right edge; no
 //!   credits, no block. It owns only the layout and its own nav label.
+//! - [`hydration`] — hydrating behind Cloudflare: [`hydration::HydrationRoot`]
+//!   (`<div id="pc-app">`, put around the app by the server's shell) and
+//!   `hydrate`, the browser entry hydrating from that root instead of
+//!   `<body>`, so nodes injected into `<body>` are never visited.
 //! - [`search`] — the search forms: [`search::SearchCard`], the home's large
 //!   card (the field, the caller's controls and a round submit), and
 //!   [`search::SearchRow`], a results page's one-line bar (an icon, the
@@ -79,6 +83,7 @@ pub mod dialog;
 pub mod env_badge;
 mod focus_trap;
 pub mod footer;
+pub mod hydration;
 pub mod icon;
 pub mod language;
 mod language_menu;
@@ -114,6 +119,9 @@ pub use carousel::Carousel;
 pub use dialog::{Dialog, DialogSection};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use footer::{Footer, FooterLink};
+pub use hydration::{APP_ROOT_ID, HydrationRoot, MissingRoot};
+#[cfg(feature = "hydrate")]
+pub use hydration::{app_root, hydrate};
 pub use icon::{Icon, IconName};
 pub use language::{Language, language_attribute, language_signal, provide_language};
 pub use menu::{DrillMenu, Menu, MenuItem};
