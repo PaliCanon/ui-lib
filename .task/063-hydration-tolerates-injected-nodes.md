@@ -1,6 +1,6 @@
 # 063 Hydration tolerates the nodes Cloudflare injects
 
-status: design · rank: 8 · level: hard · type: bug · request: palisearch 048 (user, 2026-10-14: "Garder les deux, corriger le code") · session: ui-lib-063-hydration-tolerant · process: ../../docs/workflows/process-bug.mmd · after: []
+status: building · rank: 8 · level: hard · type: bug · request: palisearch 048 (user, 2026-10-14: "Garder les deux, corriger le code") · session: ui-lib-063-hydration-tolerant · process: ../../docs/workflows/process-bug.mmd · after: []
 
 ## Summary
 Rank: difficulty 5 (the hydration entry of every site, a DOM pre-pass before `hydrate_body`, a browser-level regression test, two consumers re-pinned), impact 8 (production search and learn dev are dead in a browser until it ships) → 7. Level hard: production, every Leptos site.
@@ -14,3 +14,112 @@ Design to settle (consensus): a `palicanon_ui_lib::hydrate(App)` entry that, bef
 | Probe | done | orchestrator, 2026-10-14, CDP Fetch rewrite of the HTML response of https://search.palicanon.app/?q=anger: as served (decoy link + beacon): 1 panic; with the decoy `<a>` and the two Cloudflare scripts stripped before parsing: 0 panic, hydration completes. Cause confirmed. |
 | Email Obfuscation | ruled | user, 2026-10-15: "La garder" — the zone setting stays on; the limit stands in the design (no hydration fix tolerates an address rewritten inside the root); T3 visits /privacy and fails on a panic. |
 | Consensus | handed back | design v4 (root element `pc-app` + `palicanon_ui_lib::hydrate` = `hydrate_from(root)`, no node removed: only the leading decoy breaks hydration, probe decoy-last 0 panic); T1 wasm-bindgen-test in ui-lib CI, T2 missing root named, T3 headless-Chrome step in each site's rollout-check (/, /?q=, /privacy); rollout ui-lib v0.1.2 → PRs search-front and learn-pali → dev checks → tags v0.1.1 each (learn.palicanon.app is broken too). Voices: deep every round; gemini 503/ECONNRESET/429, sage 504 twice; simplify unanswered. Follow-up d0a3da22bb4254c (hashed pkg names, rank 4). Re-rank 7 → 8: a new wasm test harness in ui-lib CI, two production rollouts. User validation of v4 pending. |
+
+## Design
+Viewer: ui-lib-063-hydration-tolerant/design v4, validated by the user 2026-10-15 ("Validé"); consensus summary discussion #6487.
+```mermaid
+%% 063 Hydration tolerates the nodes Cloudflare injects — design v4
+flowchart TB
+  classDef cause fill:#fdecea,stroke:#c0392b,color:#5a1a12
+  classDef lib fill:#eef0ff,stroke:#8b8fb5,color:#1a1a2e
+  classDef site fill:#fff3cf,stroke:#c98a00,color:#3a2a00
+  classDef test fill:#e8f6ee,stroke:#2e8b57,color:#0f3d24
+  classDef fail fill:#fdecea,stroke:#c0392b,color:#5a1a12,stroke-width:2px
+  classDef out fill:#f4f4f4,stroke:#999,color:#333,stroke-dasharray: 4 3
+
+  subgraph CAUSE["Cause: the HTML served through Cloudflare (curl + CDP probe, 2026-10-14)"]
+    direction TB
+    BODY["body children, in order:<br/>1. a href=/cdn-cgi/content?id=… hidden (AI-crawler decoy, injected FIRST)<br/>2. the app: div (SettingsDialog), div (shell)<br/>3. inline challenge script (no src) + the iframe it appends<br/>4. script src=static.cloudflareinsights.com/beacon.min.js (Web Analytics)<br/>5. Leptos's own nonce scripts (__RESOLVED_RESOURCES…, after /html)"]:::cause
+    WALK["hydrate_body(App): tachys Cursor starts at body, child() lands on node 1,<br/>expects the app's first node, cast fails → panic hydration.rs:227 (release: unreachable)"]:::cause
+    PROBE["Probe (CDP Fetch rewrite of ?q=anger):<br/>as served: 1 panic · decoy removed, scripts kept: 0 · decoy MOVED after the app: 0<br/>→ only a node BEFORE or INSIDE the app breaks hydration; trailing nodes are never visited"]:::cause
+    BODY --> WALK --> PROBE
+  end
+
+  REQ["Requirement: hydration survives ANY node added outside the app's own markup,<br/>before or after it, whoever adds it (Cloudflare today, another zone feature or a browser extension tomorrow),<br/>with no list to keep in step and nothing removed from or moved in the DOM"]:::lib
+  PROBE --> REQ
+
+  subgraph LIB["ui-lib v0.1.2 — additive (new items only), new module src/hydration.rs"]
+    direction TB
+    ROOTID["pub const APP_ROOT_ID = pc-app — every build<br/>the one name the server writes and the browser reads"]:::lib
+    HROOT["pub component HydrationRoot(children) — every build, no cfg<br/>(the sites' shell() compiles in the hydrate build too; only the server calls it)<br/>renders div id=APP_ROOT_ID {children}; no class, no style: body is block flow, the layout is unchanged"]:::lib
+    APPROOT["fn app_root(doc) → Result of HtmlElement or MissingRoot — feature hydrate<br/>MissingRoot's Display: no element #pc-app: wrap App in HydrationRoot in the server shell"]:::lib
+    HYD["pub fn hydrate(f) — feature hydrate<br/>root = app_root(document) — Err → panic with its Display<br/>Ok → leptos::mount::hydrate_from(root, f).forget()<br/>then sets html data-hydrated (the marker T3 reads)"]:::lib
+    EXPORTS["lib.rs: pub use hydration::{APP_ROOT_ID, HydrationRoot};<br/>cfg hydrate: pub use hydration::hydrate; web-sys features already present (Document, Element, HtmlElement)"]:::lib
+    MISSING["root missing = the shell is not wired: a hard error, no fallback<br/>(fails on localhost too, so a mis-wired site never reaches a deploy)"]:::fail
+    INPANIC["a node INSIDE the root that the server did not render<br/>(Email Obfuscation rewriting an address): the same tachys panic, no marker;<br/>out of reach of any hydration fix → zone question to the user, guarded by T3 on /privacy"]:::fail
+    ROOTID --> HROOT
+    ROOTID --> APPROOT --> HYD
+    HYD --> EXPORTS
+    HROOT --> EXPORTS
+    ROOTID --> HROOT
+    ROOTID --> HYD
+    APPROOT -->|"Err MissingRoot"| MISSING
+    HYD -->|"foreign node inside the root"| INPANIC
+  end
+  REQ --> ROOTID
+
+  SKEW["Release boundary: the HTML and the wasm come from one image (one revision).<br/>Only skew: a browser's heuristic cache of the unhashed /pkg/*.wasm (no Cache-Control),<br/>pre-existing for every deploy → followup-pkg-cache (hashed pkg names), not this task"]:::out
+  HYD -.-> SKEW
+
+  subgraph NOT["Ruled out"]
+    direction TB
+    STRIP["A pre-pass REMOVING nodes before hydrate_body (a cdn-cgi / beacon list):<br/>the decoy leaves the live DOM (weaker trap for crawlers that run JS), a list behind Cloudflare,<br/>a nonce-less-script rule would hit Leptos's own scripts"]:::out
+    MOVE["A pre-pass MOVING the leading body > a[href*=/cdn-cgi/] to the end (0 panic in the probe):<br/>no shell change, but still a list: the next leading node (another feature, an extension) panics again"]:::out
+    LENIENT["A tolerant mode in Leptos 0.8: none exists (hydrate_body, hydrate_from, hydrate_lazy, hydrate_islands)"]:::out
+    ZONE["Turning Web Analytics or the decoy links off: ruled out by the user (keep both, fix the code)"]:::out
+  end
+  REQ -.-> NOT
+
+  subgraph SITES["Each site behind Cloudflare: search-front, learn-pali (one PR each, the bump commit)"]
+    direction TB
+    BUMP["Cargo.toml: palicanon-ui-lib tag v0.1.2 (Cargo.lock --locked)"]:::site
+    SHELL["app.rs shell(): body > HydrationRoot > App<br/>(the decoy, the scripts stay body children OUTSIDE the root)"]:::site
+    ENTRY["lib.rs hydrate(): palicanon_ui_lib::hydrate(app::App) instead of hydrate_body<br/>SHELL and ENTRY change in the same commit (the id written and the id read)"]:::site
+    BUMP --> SHELL --> ENTRY
+  end
+  GALLERY["ui-lab gallery: unchanged (not behind Cloudflare, stays on hydrate_body); may adopt later"]:::out
+  HROOT --> SHELL
+  HYD --> ENTRY
+
+  subgraph TESTS["Regression tests"]
+    direction TB
+    T1["T1 ui-lib tests/hydration.rs, wasm-bindgen-test, --features hydrate, wasm32, headless Chrome<br/>(wasm-pack test --headless --chrome, or wasm-bindgen-test-runner + chromedriver; both on ubuntu-latest) — a new CI job<br/>a test component Counter in the test file; its markup = Owner::new().with(view Counter .to_html())<br/>(RenderHtml::to_html is not ssr-gated, tachys 0.2.19 view/mod.rs:148), never hand-written;<br/>body = decoy a + div#pc-app holding that markup + a trailing beacon script; hydrate(Counter);<br/>a click updates its text; the decoy is still body's first child; html has data-hydrated<br/>written before hydrate exists (the red); one hydrate per test binary (it leaks its owner)"]:::test
+    T2["T2 ui-lib wasm test: a document with no #pc-app → app_root is Err(MissingRoot), its Display names pc-app and HydrationRoot (no should_panic needed)"]:::test
+    T3["T3 check hydrate in each site's scripts/rollout-check.sh --via-worker only (Chrome cannot add the origin header),<br/>after the existing checks (a challenge has already exited 3); lands in the SAME PR as SHELL + ENTRY; runs in deploy.yml<br/>on the public host once traffic moved, exit 1 → rollback (the existing path). Driver: Chrome itself, no CDP script:<br/>google-chrome --headless=new --enable-logging=stderr --virtual-time-budget=15000 --dump-dom URL under timeout 60<br/>(proved by hand on prod 2026-10-14: stderr carries panicked at), on /, /?q=satipatthana, /privacy<br/>its red: run by hand on today's prod before the fix (fails: 1 panic)"]:::test
+    T3OK["dumped DOM has html data-hydrated, stderr has no panicked at / RuntimeError → pass"]:::test
+    T3PANIC["stderr has panicked at or RuntimeError → exit 1 → rollback"]:::fail
+    T3TIME["no data-hydrated in the dumped DOM, or Chrome killed by timeout 60 → exit 1 → rollback"]:::fail
+    T3SKIP["Cloudflare challenge (exit 3, R6) or a host behind Access → SKIP as a ::warning::, never green;<br/>the orchestrator then runs the same check by hand from its machine before any prod tag"]:::out
+    T3 --> T3OK
+    T3 --> T3PANIC
+    T3 --> T3TIME
+    T3 --> T3SKIP
+  end
+  LIB --> T1
+  LIB --> T2
+  SITES --> T3
+
+  subgraph ROLL["Rollout — each site's prod tag waits on ITS OWN dev check"]
+    direction TB
+    R1["ui-lib: merge 063, release-plz tag v0.1.2"]:::lib
+    R2["search-front PR: bump + shell + entry + check hydrate → main → dev deploy, T3 on search.dev"]:::site
+    R3["search-front tag v0.1.1 → prod, T3 on search.palicanon.app (the bug's host)"]:::site
+    R4["learn-pali PR: bump + shell + entry + check hydrate → main → dev deploy, T3 on learn.dev (not behind Access today)"]:::site
+    R5["learn-pali tag v0.1.1 → prod, T3 on learn.palicanon.app (broken too: probe 2026-10-14, 1 panic)"]:::site
+    RSTOP["T3 red on a site's dev → no prod tag for that site; back to the task"]:::fail
+    RHAND["T3 SKIP on a site's dev → the orchestrator's manual run: green → the tag goes on; red → RSTOP"]:::out
+    R1 --> R2
+    R1 --> R4
+    R2 -->|"green"| R3
+    R4 -->|"green"| R5
+    R2 -->|"red"| RSTOP
+    R4 -->|"red"| RSTOP
+    R2 -->|"skip"| RHAND
+    R4 -->|"skip"| RHAND
+    RHAND -->|"manual green"| R3
+    RHAND -->|"manual green"| R5
+    RHAND -->|"manual red"| RSTOP
+  end
+  TESTS --> ROLL```
+
+| Validation | done | user, 2026-10-15: "Validé" (v4) |
