@@ -1,6 +1,6 @@
 # 063 Hydration tolerates the nodes Cloudflare injects
 
-status: merge · rank: 8 · level: hard · type: bug · request: palisearch 048 (user, 2026-10-14: "Garder les deux, corriger le code") · session: ui-lib-063-hydration-tolerant · process: ../../docs/workflows/process-bug.mmd · after: []
+status: merged · rank: 8 · level: hard · type: bug · request: palisearch 048 (user, 2026-10-14: "Garder les deux, corriger le code") · session: ui-lib-063-hydration-tolerant · process: ../../docs/workflows/process-bug.mmd · after: []
 
 ## Summary
 Rank: difficulty 5 (the hydration entry of every site, a DOM pre-pass before `hydrate_body`, a browser-level regression test, two consumers re-pinned), impact 8 (production search and learn dev are dead in a browser until it ships) → 7. Level hard: production, every Leptos site.
@@ -136,3 +136,6 @@ flowchart TB
 | CI (PR #2) | done | run 38671907327 green: rustfmt, clippy ssr + hydrate, test ssr, rustdoc, and the new `test (hydrate, headless Chrome)` job (2m38s) — the CI job is proven on a runner. |
 | Review round 1 | closed | review entry v2; sage #6655 (openai/gpt-oss-20b): "Δ list: none… T list: none" on half B (every code file: hydration.rs, lib.rs, tests, Cargo.toml, ci.yml); half A (Cargo.lock, README row, task files) read by no voice — no code in it. Deep empty twice, gemini quota. Thin but a review: accepted by the orchestrator given the browser test reproducing the bug and CI green; noted for the retro. Orchestrator check: the wasm test (T1) passes on the runner; no visible UI. |
 | Merge | done | 730a5a2 on main (squash), v0.1.2 tagged on the release commit, pushed; PR #2 closed. Next: the sites' PRs (search-front, learn-pali), dev checks, prod tags. |
+
+## Retro
+retro-discussion d0f1c493b854747: retro #7241, gemini #7243. Lessons (docs 987f948): the sites were dead in browsers; the voices failed for hours; a design named a call that cannot run. Sites: search-front 017 (prod v0.1.1), learn-pali 040 (prod v0.1.1). Validated 2026-10-15.
