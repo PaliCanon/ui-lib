@@ -18,7 +18,7 @@ Design to settle (consensus): a `palicanon_ui_lib::hydrate(App)` entry that, bef
 | Close | done | lane:hydration, process #6503 (seven errors, @gemini:role-process) |
 
 ## Design
-Viewer: ui-lib-063-hydration-tolerant/design v4, validated by the user 2026-10-15 ("Validé"); consensus summary discussion #6487.
+Viewer: ui-lib-063-hydration-tolerant/design v5 (v4 validated by the user 2026-10-15; v5 rewords T1 after the build, orchestrator ruling); consensus summary discussion #6487.
 ```mermaid
 %% 063 Hydration tolerates the nodes Cloudflare injects — design v4
 flowchart TB
@@ -85,7 +85,7 @@ flowchart TB
 
   subgraph TESTS["Regression tests"]
     direction TB
-    T1["T1 ui-lib tests/hydration.rs, wasm-bindgen-test, --features hydrate, wasm32, headless Chrome<br/>(wasm-pack test --headless --chrome, or wasm-bindgen-test-runner + chromedriver; both on ubuntu-latest) — a new CI job<br/>a test component Counter in the test file; its markup = Owner::new().with(view Counter .to_html())<br/>(RenderHtml::to_html is not ssr-gated, tachys 0.2.19 view/mod.rs:148), never hand-written;<br/>body = decoy a + div#pc-app holding that markup + a trailing beacon script; hydrate(Counter);<br/>a click updates its text; the decoy is still body's first child; html has data-hydrated<br/>written before hydrate exists (the red); one hydrate per test binary (it leaks its owner)"]:::test
+    T1["T1 ui-lib tests/hydration.rs, wasm-bindgen-test, --features hydrate, wasm32, headless Chrome<br/>(wasm-pack test --headless --chrome, or wasm-bindgen-test-runner + chromedriver; both on ubuntu-latest) — a new CI job<br/>a test component Counter in the test file; its server markup lives in tests/fixtures/hydration-counter.html, pinned by a native test asserting the fixture == view!{<HydrationRoot><Counter/></HydrationRoot>}.to_html() under ssr (UPDATE_FIXTURES=1 rewrites it; rendering to HTML inside the hydrate build is impossible: tachys panics without ssr, and ssr drops the event handlers); the wasm test inserts decoy + fixture + beacon at the start of body (insert_adjacent_html afterbegin, never body.innerHTML: it would wipe the runner's own elements), calls hydrate(Counter), clicks, asserts the counter updated, the decoy still first, html[data-hydrated] set"]:::test
     T2["T2 ui-lib wasm test: a document with no #pc-app → app_root is Err(MissingRoot), its Display names pc-app and HydrationRoot (no should_panic needed)"]:::test
     T3["T3 check hydrate in each site's scripts/rollout-check.sh --via-worker only (Chrome cannot add the origin header),<br/>after the existing checks (a challenge has already exited 3); lands in the SAME PR as SHELL + ENTRY; runs in deploy.yml<br/>on the public host once traffic moved, exit 1 → rollback (the existing path). Driver: Chrome itself, no CDP script:<br/>google-chrome --headless=new --enable-logging=stderr --virtual-time-budget=15000 --dump-dom URL under timeout 60<br/>(proved by hand on prod 2026-10-14: stderr carries panicked at), on /, /?q=satipatthana, /privacy<br/>its red: run by hand on today's prod before the fix (fails: 1 panic)"]:::test
     T3OK["dumped DOM has html data-hydrated, stderr has no panicked at / RuntimeError → pass"]:::test
@@ -132,3 +132,4 @@ flowchart TB
 | src/hydration.rs, src/lib.rs, Cargo.toml, README.md | src/hydration.rs tests (root id, bare div, MissingRoot message); red E0425 | APP_ROOT_ID, HydrationRoot, MissingRoot, app_root, hydrate | db87047 |
 | tests/hydration.rs, tests/fixtures/hydration-counter.html | T1 hydrates past the decoy and beacon, T2 missing root named, root found by id, fixture = ssr render; red E0432, then the hydrate_body panic | (the tests) | db87047 |
 | .github/workflows/ci.yml | job test-browser (headless Chrome) | — | 348b68d, unproven on a runner |
+| Build ruling (T1) | ruled | the design's `Owner::new().with(view.to_html())` inside the hydrate build is impossible (tachys panics without ssr; ssr drops the handlers): the markup is a fixture pinned by a native test equal to the view's `to_html()` under ssr — accepted, design v5 (node T1). Trailer `Claude Opus 5.5` on the commits: left as is. Pre-existing: rustdoc with `--features hydrate` fails on `src/language.rs` links → task 064. CI job `test-browser` unproven on a runner: the branch is pushed as a PR to prove it. |
