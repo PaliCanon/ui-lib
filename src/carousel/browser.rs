@@ -20,7 +20,7 @@ pub(super) fn track(
     at_start: RwSignal<bool>,
     at_end: RwSignal<bool>,
 ) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     Effect::new(move |_| {
         let Some(el) = scroller.get() else {
             return;
@@ -29,7 +29,7 @@ pub(super) fn track(
         listen(el, at_start, at_end);
         hydrated.set(true);
     });
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = (scroller, hydrated, at_start, at_end);
 }
 
@@ -46,7 +46,7 @@ pub(super) fn press(
     status: RwSignal<String>,
     presses: StoredValue<usize>,
 ) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     {
         use super::scroll::{clamp_index, scroll_target, target_index};
         use super::status_text;
@@ -71,12 +71,12 @@ pub(super) fn press(
         let locale = Locale::from(language_signal().get_untracked());
         status.set(status_text(locale, shown, total, presses.get_value()));
     }
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = (scroller, direction, total, status, presses);
 }
 
 /// Sets the two flags from the element's current position.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn refresh(el: &web_sys::Element, at_start: RwSignal<bool>, at_end: RwSignal<bool>) {
     use super::scroll;
     let left = f64::from(el.scroll_left());
@@ -90,7 +90,7 @@ fn refresh(el: &web_sys::Element, at_start: RwSignal<bool>, at_end: RwSignal<boo
 
 /// Refreshes the flags on the element's scroll (passive) and on the
 /// window's resize; both listeners are removed with the carousel's owner.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn listen(el: web_sys::HtmlDivElement, at_start: RwSignal<bool>, at_end: RwSignal<bool>) {
     use wasm_bindgen::{JsCast, closure::Closure};
     let on_resize = el.clone();
@@ -123,7 +123,7 @@ fn listen(el: web_sys::HtmlDivElement, at_start: RwSignal<bool>, at_end: RwSigna
 /// plus its scroll position. Empty when the query fails. Selects only the
 /// carousel's own slides (direct children with `data-slide`), not nested
 /// carousels' slides.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn slide_lefts(el: &web_sys::Element) -> Vec<f64> {
     use wasm_bindgen::JsCast;
     let origin = el.get_bounding_client_rect().left() - f64::from(el.scroll_left());

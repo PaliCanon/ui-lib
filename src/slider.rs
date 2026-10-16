@@ -43,7 +43,7 @@ pub fn Slider(
     // Written back, so a limit that shrinks below the chosen value moves the
     // value itself, not only what is shown (which is always the clamped one).
     // Browser only: the server's render shows the clamped value anyway.
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     Effect::new(move |_| {
         let held = clamp(value.get_untracked(), min, max.get());
         if held != value.get_untracked() {

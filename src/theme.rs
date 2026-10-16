@@ -27,6 +27,7 @@ use crate::icon::IconName;
 use crate::language::language_signal;
 use crate::menu::MenuItem;
 use crate::persisted;
+use crate::store::{Store, parse_stored};
 
 /// The three reading themes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -82,18 +83,20 @@ impl FromStr for Theme {
 }
 
 /// The `data-theme` attribute `<html>` should carry for the first render of
-/// a page, from the `pc_theme` cookie of the request being rendered (or
-/// `document.cookie`, if this runs in the browser). `None` means `System`
-/// (or no stored preference yet): the page carries no attribute, and CSS
-/// follows `prefers-color-scheme` before the first paint.
+/// a page, from the `pc_theme` value of the current [`Store`]: the request's
+/// cookie on the server, `document.cookie` or `localStorage` in the browser.
+/// `None` means `System` (or no stored preference yet): the page carries no
+/// attribute, and CSS follows `prefers-color-scheme` before the first paint.
 #[must_use]
 pub fn theme_attribute() -> Option<&'static str> {
+    theme_attribute_in(Store::current())
+}
+
+/// [`theme_attribute`] over a given store, for `csr::mount`, which
+/// has no context yet. A garbled value maps as a missing one: no attribute.
+pub(crate) fn theme_attribute_in(store: Store) -> Option<&'static str> {
     let key = format!("{}theme", persisted::PREFIX);
-    persisted::request_cookies()
-        .as_deref()
-        .and_then(|cookies| persisted::cookie_value(cookies, &key))
-        .and_then(|raw| raw.parse::<Theme>().ok())
-        .and_then(Theme::attribute)
+    parse_stored::<Theme>(store.read(&key).as_deref()).and_then(Theme::attribute)
 }
 
 /// The reading theme: [`persisted`](fn@crate::persisted) under `pc_theme` the
@@ -304,6 +307,21 @@ mod tests {
             None,
             "no attribute: CSS follows the device"
         );
+    }
+
+    #[test]
+    fn the_theme_attribute_reads_through_the_current_store() {
+        Owner::new().with(|| {
+            let request = http::Request::builder()
+                .header(http::header::COOKIE, "pc_theme=dark")
+                .body(())
+                .unwrap();
+            provide_context(request.into_parts().0);
+            assert_eq!(theme_attribute_in(Store::Cookie), Some("dark"));
+            assert_eq!(theme_attribute_in(Store::Local), None, "not the cookie");
+            provide_context(Store::Local);
+            assert_eq!(theme_attribute(), None, "the provided store is read");
+        });
     }
 
     #[test]

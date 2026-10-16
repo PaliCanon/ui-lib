@@ -38,7 +38,7 @@ pub fn Popover<D: Disclosure>(
 ) -> impl IntoView {
     close_on_outside_interaction(controls);
     let panel: NodeRef<leptos::html::Div> = NodeRef::new();
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     Effect::new(move |_| {
         if controls.is_open() {
             flip_if_overflowing(panel);
@@ -60,13 +60,13 @@ pub fn Popover<D: Disclosure>(
 }
 
 /// How far a panel stays from the visible viewport's bottom edge.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 const VIEWPORT_MARGIN_PX: f64 = 8.0;
 
 /// Once the open panel is laid out: if it runs past the bottom of the
 /// visible viewport and its trigger has more room above, place it above the
 /// trigger (`bottom: 100%`). Reset first, so each opening measures afresh.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn flip_if_overflowing(panel: NodeRef<leptos::html::Div>) {
     request_animation_frame(move || {
         let Some(el) = panel.get_untracked() else {
@@ -100,7 +100,7 @@ fn flip_if_overflowing(panel: NodeRef<leptos::html::Div>) {
 /// The browser only: Escape, or a click outside the panel and its trigger,
 /// closes `controls`. There is no window while the server renders.
 fn close_on_outside_interaction<D: Disclosure>(controls: D) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     {
         let escape = window_event_listener(leptos::ev::keydown, move |ev| {
             if controls.is_open() && ev.key() == "Escape" {
@@ -118,13 +118,13 @@ fn close_on_outside_interaction<D: Disclosure>(controls: D) {
             outside.remove();
         });
     }
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = controls;
 }
 
 /// Whether `ev` landed outside both the element `id` (the panel) and
 /// whatever names it with `aria-controls` (its trigger).
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn click_is_outside(id: &str, ev: &leptos::ev::MouseEvent) -> bool {
     use wasm_bindgen::JsCast;
     let selector = format!("#{id}, [aria-controls=\"{id}\"]");

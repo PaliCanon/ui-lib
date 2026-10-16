@@ -138,7 +138,7 @@ fn label_class(checked: bool) -> &'static str {
 /// only: it needs the DOM to find which option has focus and to move focus
 /// to the next one. Space and Enter need nothing here: a `<button>` answers
 /// both natively.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn choice_cards_keydown<T: Copy>(
     ev: &leptos::ev::KeyboardEvent,
     values: &[T],
@@ -180,7 +180,7 @@ fn choice_cards_keydown<T: Copy>(
     ev.prevent_default();
 }
 
-#[cfg(not(feature = "hydrate"))]
+#[cfg(not(feature = "browser"))]
 fn choice_cards_keydown<T: Copy>(
     _ev: &leptos::ev::KeyboardEvent,
     _values: &[T],

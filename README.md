@@ -12,7 +12,9 @@ It never holds a project's content (copy, data, routes, screens).
 
 | Item | What | Used by |
 | --- | --- | --- |
-| `persisted`, `persisted_with` | A value kept in a cookie shared by every `*.palicanon.app` service, read by the server for the first render; `persisted_with` starts from a value the caller resolved itself and only writes the cookie | `AppShell`, `theme_attribute`, `provide_language` |
+| `persisted`, `persisted_with` | A value kept in a cookie shared by every `*.palicanon.app` service, read by the server for the first render (or, under `csr::mount`, in `localStorage`: see `Store`); `persisted_with` starts from a value the caller resolved itself and only writes it | `AppShell`, `theme_attribute`, `provide_language` |
+| `Store`, `StoreError` | Where a preference is kept, a value read from Leptos context (`Store::current()`): `Store::Cookie`, the default and the web's behaviour (the request's `pc_*` cookie on the server, `document.cookie` in the browser), or `Store::Local` (`localStorage` under the same `pc_*` keys), which `csr::mount` provides. `persisted`, `persisted_with`, `theme_attribute` and the language read and write only through it, and `document.cookie` is named in `src/store.rs` alone (a test greps for it). A `Local` read of storage that is absent, throws or holds a garbled value is "no value" and the default applies; a `Local` write returns a `Result<(), StoreError>` (`Unavailable`, `Rejected`), the signal keeps its value in memory and one console warning is logged. Under `Local` the language is the stored `pc_lang`, else the first supported entry of `navigator.languages`, else English, and a detected language is never written | `persisted`, `theme_attribute`, `provide_language`, `csr::mount` |
+| `csr::mount` | The entry of a page with no server (feature `csr`), the counterpart of `hydrate`: builds one `Store::Local`, sets `<html data-theme>` and `<html lang>` from it before anything renders (the same resolution the mounted tree uses), mounts the app into `<body>` and provides that store at the root, so a choice lands in `localStorage` and never in `document.cookie`. An app that mounts with `leptos::mount` directly gets the cookie default, which is not guarded at runtime | the PaliCanon app (task 067) |
 | `Language`, `provide_language`, `language_signal`, `language_attribute`, `resolve_language` | The interface language (English, Français, Tiếng Việt): `resolve_language` is the one owner of the server's choice (cookie `pc_lang`, then `Accept-Language`, then English), `provide_language` puts the page's one signal at the app root (the server's shell and the hydrated root; `AppShell` calls it too), `language_signal` is that signal, which every catalogue reads — from the request on the server, from `<html lang>` when hydrating; `language_attribute` is the server shell's `<html lang>`; a choice is kept in `pc_lang` and applies live. Each crate keeps its strings in its own typed `leptos_i18n` catalogue (`build.rs` from `locales/<code>.json`, a missing key or a placeholder not in every locale fails the build) whose `Locale` has an exhaustive `From<Language>`; the library's own strings follow it | `AppShell`, gallery (ui-lab) |
 | `Motion`, `Presence` | Motion tokens (`--dur-*`, `--ease-*`, `--spring`) and the `pc-motion-*` classes a `Motion` (Fade, Scale, Slide) builds on them; `Presence` keeps its content mounted through its exit, playing one | gallery (ui-lab) |
 | `Button`, `DisclosureButton`, `ToggleButton`, `LinkButton`, `RadioButton` | The button family: appearance is a `Variant` (Icon, Chip, Primary, Accent, Ghost, Nav, Tile — a box of stacked content: a counter cell, a link, a selectable cell shown pressed) and a `Size` (Sm, Md, Lg); behaviour is the component (click, open/close something, on/off, navigate, one choice of a group) | `AppShell`, gallery (ui-lab) |
@@ -39,9 +41,44 @@ It never holds a project's content (copy, data, routes, screens).
 ## Use it
 
 ```toml
-palicanon-ui-lib = { git = "ssh://git@github.com/PaliCanon/ui-lib.git", branch = "main" }
-# features: "ssr" on the server, "hydrate" in the browser (wasm32)
+palicanon-ui-lib = { git = "ssh://git@github.com/PaliCanon/ui-lib.git", tag = "v0.3.0" }
+# features: "ssr" on the server, "hydrate" in the browser (wasm32),
+# "csr" for a page with no server (wasm32)
 ```
+
+### The three modes
+
+| Mode | Feature | Who builds the first page | Preferences | Entry a consumer writes |
+| --- | --- | --- | --- | --- |
+| Server render | `ssr` | the server, from the request | `pc_*` cookies (the request's) | the server's `shell()` wraps the app in `HydrationRoot` |
+| Hydrate | `hydrate` | the browser takes the server's HTML over | `pc_*` cookies (`document.cookie`) | `hydrate(App)` |
+| Client only | `csr` | the browser, from an empty document | `localStorage` under the same `pc_*` keys | `csr::mount(App)` |
+
+`hydrate` and `csr` both enable `browser` (the code that touches the DOM,
+`web-sys` and `wasm-bindgen`). A web site is unchanged: it provides no
+`Store`, so it keeps its cookies.
+
+A client-only app (no server, no cookies) builds with `csr` alone and
+starts with one call:
+
+```toml
+palicanon-ui-lib = { git = "ssh://git@github.com/PaliCanon/ui-lib.git", tag = "v0.3.0", default-features = false, features = ["csr"] }
+```
+
+```rust
+fn main() {
+    palicanon_ui_lib::csr::mount(App);
+}
+```
+
+`csr::mount` is called once per page. It sets `<html data-theme>` and
+`<html lang>` from `localStorage` (the language falls back to the first
+supported `navigator.languages` entry, then English) before the first
+render (they are set once the wasm runs, so the stylesheet's defaults show
+until then), then provides `Store::Local` at the root, so every
+`persisted` value, the theme and the language are kept in `localStorage`. Mounting
+with `leptos::mount` instead gives the cookie default and loses the
+preferences with the cookies.
 
 Besides the crate, a consumer reads three things from the repository:
 
@@ -65,11 +102,16 @@ cargo fmt --check
 leptosfmt --check .    # the view! macros (cargo install leptosfmt --locked)
 cargo clippy --features ssr --all-targets -- -D warnings
 cargo clippy --features hydrate --target wasm32-unknown-unknown --all-targets -- -D warnings
-cargo test --features ssr
-# The browser test (tests/hydration.rs) in a headless Chrome: wasm-bindgen-cli
+cargo clippy --features csr --target wasm32-unknown-unknown --all-targets -- -D warnings
+cargo clippy --features browser --target wasm32-unknown-unknown --all-targets -- -D warnings
+cargo test --features ssr    # includes tests/cfg_gates.rs, the grep gates on the cfg names
+# The browser tests (tests/hydration.rs) in a headless Chrome: wasm-bindgen-cli
 # at Cargo.lock's wasm-bindgen version, and a chromedriver matching Chrome.
 CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner CHROMEDRIVER=<chromedriver> \
   cargo test --features hydrate --target wasm32-unknown-unknown --test hydration
+# and tests/csr.rs, the csr mode in the same browser:
+CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER=wasm-bindgen-test-runner CHROMEDRIVER=<chromedriver> \
+  cargo test --features csr --target wasm32-unknown-unknown --test csr
 RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --features ssr
 ```
 

@@ -7,7 +7,7 @@
 
 /// Browsers report fractional scroll positions; within this many pixels of
 /// an end (or of a slide's edge) counts as being there.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 const TOLERANCE: f64 = 1.0;
 
 /// Which way a button scrolls.
@@ -20,21 +20,21 @@ pub(super) enum Direction {
 }
 
 /// Whether the scroller is at its left end.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 pub(super) fn at_start(scroll_left: f64) -> bool {
     scroll_left <= TOLERANCE
 }
 
 /// Whether the scroller is at its right end; true too when the content is
 /// not wider than the box (nothing to scroll).
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 pub(super) fn at_end(scroll_left: f64, client_width: f64, scroll_width: f64) -> bool {
     scroll_left + client_width >= scroll_width - TOLERANCE
 }
 
 /// The last position the scroller can rest at: the content's width less the
 /// box's, never below the start (content narrower than the box).
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 fn max_scroll(client_width: f64, scroll_width: f64) -> f64 {
     (scroll_width - client_width).max(0.0)
 }
@@ -51,7 +51,7 @@ fn max_scroll(client_width: f64, scroll_width: f64) -> f64 {
 /// number of slides in view. Already at the end (the position a press
 /// would reach is where the scroller is), there is nowhere to go: `None`.
 /// [`scroll_target`] gives the position to scroll to.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 pub(super) fn target_index(
     lefts: &[f64],
     scroll_left: f64,
@@ -82,7 +82,7 @@ pub(super) fn target_index(
 
 /// Where the scroller goes for a slide whose left edge is `left`: the edge,
 /// stopped at the last position the scroller can rest at.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 pub(super) fn scroll_target(left: f64, client_width: f64, scroll_width: f64) -> f64 {
     left.min(max_scroll(client_width, scroll_width))
 }
@@ -91,7 +91,7 @@ pub(super) fn scroll_target(left: f64, client_width: f64, scroll_width: f64) -> 
 /// component rendered: the status never names a slide past "N of N" even if
 /// the scroller holds one more `[data-slide]` than the render counted (a
 /// nested carousel, a caller's own marker). With no slide, 0.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 pub(super) fn clamp_index(index: usize, total: usize) -> usize {
     index.min(total.saturating_sub(1))
 }

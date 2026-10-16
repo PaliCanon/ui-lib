@@ -21,6 +21,11 @@
 //! A choice made later is written back to `pc_lang`
 //! ([`persisted_with`](crate::persisted::persisted_with)), shared by every
 //! `*.palicanon.app` service, and applies live, without a reload.
+//!
+//! A page with no server (`csr`, [`Store::Local`](crate::store::Store::Local)) has no `<html lang>` to
+//! start from: the stored `pc_lang`, else the first supported entry of
+//! `navigator.languages`, else English. That detection is read only, never
+//! written: only a choice is stored.
 
 use std::fmt;
 use std::str::FromStr;
@@ -160,14 +165,56 @@ pub fn resolve_language(parts: &http::request::Parts) -> Language {
 
 /// The language the server rendered, as hydration reads it back from
 /// `<html lang>`: English when the attribute is missing or unknown.
-#[cfg(any(feature = "hydrate", test))]
+#[cfg(any(feature = "browser", test))]
 fn from_html_lang(lang: Option<&str>) -> Language {
     lang.and_then(Language::from_tag).unwrap_or_default()
 }
 
+/// The language of a page that keeps its preferences in `localStorage`:
+/// the stored `pc_lang` when it holds a known language, else the first of
+/// the browser's `navigator.languages` that is supported, else English. It
+/// only reads: a detected locale is never written back, so it stays
+/// distinguishable from a choice (as `Accept-Language` is on the server).
+#[cfg(any(feature = "browser", test))]
+fn pick_language(stored: Option<&str>, navigator: &[String]) -> Language {
+    persisted_language(stored)
+        .or_else(|| navigator.iter().find_map(|tag| Language::from_tag(tag)))
+        .unwrap_or_default()
+}
+
+/// `pc_lang`'s value as a language: exactly a [`Language::code`].
+#[cfg(any(feature = "browser", test))]
+fn persisted_language(stored: Option<&str>) -> Option<Language> {
+    crate::store::parse_stored(stored)
+}
+
+/// `navigator.languages`, most preferred first (empty without a window).
+#[cfg(feature = "browser")]
+fn navigator_languages() -> Vec<String> {
+    web_sys::window()
+        .map(|window| {
+            let languages = window.navigator().languages();
+            languages.iter().filter_map(|tag| tag.as_string()).collect()
+        })
+        .unwrap_or_default()
+}
+
+/// The language under [`Store::Local`](crate::store::Store::Local): [`pick_language`] over the real
+/// `localStorage` and `navigator.languages`. Also what
+/// `csr::mount` puts into `<html lang>` before the first render.
+#[cfg(feature = "browser")]
+pub(crate) fn local_language() -> Language {
+    let key = format!("{}{COOKIE}", persisted::PREFIX);
+    pick_language(
+        crate::store::Store::Local.read(&key).as_deref(),
+        &navigator_languages(),
+    )
+}
+
 /// The first value of [`language_signal`]: the request's
-/// ([`resolve_language`]) on the server, `<html lang>` in the browser,
-/// English when neither exists (a plain test).
+/// ([`resolve_language`]) on the server; in the browser, [`local_language`]
+/// under [`Store::Local`](crate::store::Store::Local), else `<html lang>` (the language the server
+/// rendered); English when none exists (a plain test).
 fn initial_language() -> Language {
     #[cfg(feature = "ssr")]
     {
@@ -175,14 +222,17 @@ fn initial_language() -> Language {
             .map(|parts| resolve_language(&parts))
             .unwrap_or_default()
     }
-    #[cfg(all(feature = "hydrate", not(feature = "ssr")))]
+    #[cfg(all(feature = "browser", not(feature = "ssr")))]
     {
+        if crate::store::Store::current() == crate::store::Store::Local {
+            return local_language();
+        }
         let lang = document()
             .document_element()
             .and_then(|root| root.get_attribute("lang"));
         from_html_lang(lang.as_deref())
     }
-    #[cfg(not(any(feature = "ssr", feature = "hydrate")))]
+    #[cfg(not(any(feature = "ssr", feature = "browser")))]
     {
         Language::default()
     }
@@ -353,6 +403,52 @@ mod tests {
         assert_eq!(resolve(None, None), Language::En);
         assert_eq!(resolve(None, Some("de-DE,ja;q=0.5")), Language::En);
         assert_eq!(resolve(Some("pc_lang=xx"), Some("de")), Language::En);
+    }
+
+    #[test]
+    fn the_stored_language_beats_the_browsers() {
+        assert_eq!(pick_language(Some("vi"), &["fr".into()]), Language::Vi);
+    }
+
+    #[test]
+    fn without_a_stored_language_the_first_supported_browser_one_wins() {
+        let navigator = ["de-DE", "FR-ca", "vi"].map(String::from);
+        assert_eq!(pick_language(None, &navigator), Language::Fr);
+        assert_eq!(pick_language(None, &["en-US".into()]), Language::En);
+    }
+
+    #[test]
+    fn a_garbled_stored_language_falls_to_the_browsers_then_english() {
+        assert_eq!(
+            pick_language(Some("klingon"), &["vi-VN".into()]),
+            Language::Vi
+        );
+        assert_eq!(
+            pick_language(Some("fr-CA"), &[]),
+            Language::En,
+            "exact codes"
+        );
+        assert_eq!(
+            pick_language(None, &["de".into(), "ja".into()]),
+            Language::En
+        );
+        assert_eq!(pick_language(None, &[]), Language::En);
+    }
+
+    #[test]
+    fn an_empty_or_unsupported_navigator_list_is_english() {
+        assert_eq!(pick_language(None, &[]), Language::En, "empty");
+        let unsupported = ["de-DE", "ja", "zh-Hant", ""].map(String::from);
+        assert_eq!(
+            pick_language(None, &unsupported),
+            Language::En,
+            "unsupported"
+        );
+        assert_eq!(
+            pick_language(Some(""), &unsupported),
+            Language::En,
+            "empty store"
+        );
     }
 
     #[test]

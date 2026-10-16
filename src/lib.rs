@@ -79,6 +79,9 @@ pub mod bucket_strip;
 pub mod button;
 pub mod carousel;
 mod catalogue;
+// Present only under the `csr` feature (an inner cfg in the file: the grep
+// gates keep every `csr` cfg in csr.rs).
+pub mod csr;
 pub mod dialog;
 pub mod env_badge;
 mod focus_trap;
@@ -101,6 +104,7 @@ pub mod search;
 pub mod session_header;
 pub mod shell;
 pub mod slider;
+pub mod store;
 pub mod theme;
 mod viewport;
 
@@ -119,9 +123,12 @@ pub use carousel::Carousel;
 pub use dialog::{Dialog, DialogSection};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use footer::{Footer, FooterLink};
-pub use hydration::{APP_ROOT_ID, HydrationRoot, MissingRoot};
-#[cfg(feature = "hydrate")]
-pub use hydration::{app_root, hydrate};
+// A glob: `app_root` and `hydrate` exist only under `hydrate`, a cfg that
+// lives in hydration.rs alone (the grep gates, tests/cfg_gates.rs).
+// Every `pub` item of hydration.rs is the crate's API (today exactly
+// APP_ROOT_ID, HydrationRoot, MissingRoot, app_root, hydrate): a new `pub`
+// item there is a new export.
+pub use hydration::*;
 pub use icon::{Icon, IconName};
 pub use language::{Language, language_attribute, language_signal, provide_language};
 pub use menu::{DrillMenu, Menu, MenuItem};
@@ -138,4 +145,5 @@ pub use search::{SearchCard, SearchRow};
 pub use session_header::SessionHeader;
 pub use shell::{AppShell, ShellState};
 pub use slider::Slider;
+pub use store::{Store, StoreError};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};

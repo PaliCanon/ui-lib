@@ -204,7 +204,7 @@ enum KeyEffect {
 
 /// What the event's target is, as far as the card cares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+#[cfg_attr(not(feature = "browser"), allow(dead_code))]
 enum TargetKind {
     /// Anything that does not use Space or Enter itself.
     Plain,
@@ -239,7 +239,7 @@ fn key_effect(key: &str, repeat: bool, target: TargetKind, revealed: bool) -> Ke
 
 /// Classifies the keydown's target (hydrate only: it needs the DOM; not
 /// tested natively, the gallery shows it).
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn target_kind(ev: &KeyboardEvent) -> TargetKind {
     use wasm_bindgen::JsCast;
     const KINDS: [(&str, TargetKind); 6] = [
@@ -274,7 +274,7 @@ fn target_kind(ev: &KeyboardEvent) -> TargetKind {
     TargetKind::Plain
 }
 
-#[cfg(not(feature = "hydrate"))]
+#[cfg(not(feature = "browser"))]
 fn target_kind(_ev: &KeyboardEvent) -> TargetKind {
     TargetKind::Plain
 }
@@ -283,7 +283,7 @@ fn target_kind(_ev: &KeyboardEvent) -> TargetKind {
 
 /// What the focus rule looks at: the key, and whether it is revealed.
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+#[cfg_attr(not(feature = "browser"), allow(dead_code))]
 struct CardState {
     key: String,
     revealed: bool,
@@ -291,7 +291,7 @@ struct CardState {
 
 /// Where the focus goes after a change.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+#[cfg_attr(not(feature = "browser"), allow(dead_code))]
 enum FocusMove {
     /// Nowhere.
     None,
@@ -304,7 +304,7 @@ enum FocusMove {
 /// The first run moves nothing (the hydration pass is unrevealed and the
 /// card must not steal the focus on mount); an un-hide focuses the reveal;
 /// a key change focuses the wrapper.
-#[cfg_attr(not(feature = "hydrate"), allow(dead_code))]
+#[cfg_attr(not(feature = "browser"), allow(dead_code))]
 fn focus_move(previous: Option<&CardState>, now: &CardState) -> FocusMove {
     let Some(previous) = previous else {
         return FocusMove::None;
@@ -321,7 +321,7 @@ fn focus_move(previous: Option<&CardState>, now: &CardState) -> FocusMove {
 /// Runs the focus rule after every change of the key or of `revealed`
 /// (hydrate only: `focus()` needs the DOM, and an effect runs after the
 /// un-hide has rendered; not tested natively, the gallery shows it).
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn wire_focus(state: Reveal, wrapper: NodeRef<html::Div>, region: NodeRef<html::Div>) {
     Effect::new(move |previous: Option<CardState>| {
         let now = CardState {
@@ -337,14 +337,14 @@ fn wire_focus(state: Reveal, wrapper: NodeRef<html::Div>, region: NodeRef<html::
     });
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn focus(node: NodeRef<html::Div>) {
     if let Some(element) = node.get_untracked() {
         let _ = element.focus();
     }
 }
 
-#[cfg(not(feature = "hydrate"))]
+#[cfg(not(feature = "browser"))]
 fn wire_focus(_state: Reveal, _wrapper: NodeRef<html::Div>, _region: NodeRef<html::Div>) {}
 
 #[cfg(all(test, feature = "ssr"))]

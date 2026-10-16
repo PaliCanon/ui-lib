@@ -160,7 +160,7 @@ pub fn Carousel(
 /// texts always differ, which is what makes the region announce again, and
 /// the words read are the same. The language lives here, not in `scroll`,
 /// whose functions are pure numbers.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 fn status_text(
     locale: crate::catalogue::Locale,
     index: usize,

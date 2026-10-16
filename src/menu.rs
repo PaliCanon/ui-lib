@@ -144,7 +144,7 @@ pub fn Menu<D: Disclosure>(
     let path: Path = RwSignal::new(Vec::new());
     // Collapsed submenus the next time it opens: reopening a menu always
     // starts at its top level.
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     Effect::new(move |_| {
         if !controls.is_open() {
             path.set(Vec::new());
@@ -213,7 +213,7 @@ fn level_keydown(ev: leptos::ev::KeyboardEvent, path: Path) {
     arrow_focus(&ev, &key);
 }
 
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn arrow_focus(ev: &leptos::ev::KeyboardEvent, key: &str) {
     use wasm_bindgen::JsCast;
     if key != "ArrowDown" && key != "ArrowUp" {
@@ -228,12 +228,12 @@ fn arrow_focus(ev: &leptos::ev::KeyboardEvent, key: &str) {
     ev.prevent_default();
 }
 
-#[cfg(not(feature = "hydrate"))]
+#[cfg(not(feature = "browser"))]
 fn arrow_focus(_ev: &leptos::ev::KeyboardEvent, _key: &str) {}
 
 /// Moves focus to the next (or, `!forward`, previous) item of `menu`'s own
 /// level (its direct children's `[role^="menuitem"]`), wrapping around.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn move_focus(menu: &web_sys::Element, forward: bool) {
     use wasm_bindgen::JsCast;
     let Ok(list) = menu.query_selector_all(":scope > div > [role^='menuitem']") else {
@@ -259,7 +259,7 @@ fn move_focus(menu: &web_sys::Element, forward: bool) {
 
 /// How far a submenu panel stays from the viewport's edges: half a rem at
 /// the default 16px root font size.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 const SUBMENU_VIEWPORT_MARGIN_PX: f64 = 8.0;
 
 /// Places a submenu panel (`panel`, absolutely positioned inside its
@@ -277,7 +277,7 @@ const SUBMENU_VIEWPORT_MARGIN_PX: f64 = 8.0;
 ///
 /// The browser only: there is no window to measure against while the
 /// server renders.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn position_submenu(panel: NodeRef<html::Div>) {
     request_animation_frame(move || {
         let Some(el) = panel.get_untracked() else {
@@ -314,7 +314,7 @@ fn position_submenu(panel: NodeRef<html::Div>) {
 
 /// Steps 1 to 3 of [`position_submenu`], for a panel `height` pixels tall
 /// next to `entry`, in a viewport `vh` pixels tall.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn place_vertically(
     style: &web_sys::CssStyleDeclaration,
     entry: &web_sys::DomRect,
@@ -372,7 +372,7 @@ fn desktop_item_content(
                 });
             });
             let panel_ref: NodeRef<html::Div> = NodeRef::new();
-            #[cfg(feature = "hydrate")]
+            #[cfg(feature = "browser")]
             Effect::new(move |_| {
                 if open.get() {
                     position_submenu(panel_ref);

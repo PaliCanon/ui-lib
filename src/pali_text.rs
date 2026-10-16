@@ -185,11 +185,11 @@ const PANEL_LAYOUT: &str = "z-50 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 \
     sm:w-72 sm:max-w-[calc(100vw-2rem)]";
 
 /// The custom property the desktop panel's `top` reads, in [`PANEL_LAYOUT`].
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 const TOP_VAR: &str = "--pc-word-top";
 
 /// The custom property the desktop panel's `left` reads, in [`PANEL_LAYOUT`].
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 const LEFT_VAR: &str = "--pc-word-left";
 
 /// The dimmed backdrop behind the sheet, on a phone only.
@@ -202,7 +202,7 @@ const CONTENT: &str = "px-2 py-1 text-left text-sm leading-6 font-normal text-in
 
 /// Where the desktop panel goes: pure, so it is tested natively; the
 /// browser feeds it measured boxes (`place_panel`).
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 mod placement {
     /// The gap between the word and the panel; also the least room kept
     /// between the panel and the viewport's top and bottom edges.
@@ -475,7 +475,7 @@ fn WordPanel(
 
 /// The `sm` breakpoint (40rem), in CSS pixels: from it on, the panel is
 /// the desktop popover rather than the sheet.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 const SM_PX: f64 = 640.0;
 
 /// The browser only, on desktop: once the panel is laid out, place it by
@@ -484,7 +484,7 @@ const SM_PX: f64 = 640.0;
 /// would stay put while its word moves. The listeners end with the panel
 /// (053). The phone's sheet is left as it is.
 fn place_on_desktop(open: OpenWord, word: NodeRef<leptos::html::Button>) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     {
         let wide = window()
             .inner_width()
@@ -496,14 +496,14 @@ fn place_on_desktop(open: OpenWord, word: NodeRef<leptos::html::Button>) {
             close_on_scroll_or_resize(open);
         }
     }
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = (open, word);
 }
 
 /// Measures the pressed word and the panel `id`, and sets the panel's
 /// [`TOP_VAR`] and [`LEFT_VAR`] from [`placement::place`] against the
 /// visible viewport. Nothing when either is gone.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn place_panel(id: &str, word: NodeRef<leptos::html::Button>) {
     use placement::{Rect, Size, place};
     use wasm_bindgen::JsCast;
@@ -537,7 +537,7 @@ fn place_panel(id: &str, word: NodeRef<leptos::html::Button>) {
 /// Closes the open word on a window `resize` and on any `scroll`, listened
 /// to in the capture phase (an inner box's scroll does not bubble); both
 /// listeners are removed when the panel's owner is cleaned up.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn close_on_scroll_or_resize(open: OpenWord) {
     use wasm_bindgen::{JsCast, closure::Closure};
     let resize = window_event_listener(leptos::ev::resize, move |_| open.close());

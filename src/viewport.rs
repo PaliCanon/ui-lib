@@ -5,7 +5,7 @@
 
 /// The visible width and height in CSS pixels: the visual viewport when
 /// the browser has one, the window otherwise.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 pub(crate) fn visible_size() -> (f64, f64) {
     let win = leptos::prelude::window();
     if let Some(vv) = win.visual_viewport() {

@@ -151,7 +151,7 @@ fn Footer(children: Children) -> impl IntoView {
 /// The browser only: Escape closes `controls` while `dismissable`. There is
 /// no window while the server renders.
 fn close_on_escape<D: Disclosure>(controls: D, dismissable: bool) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     {
         let handle = window_event_listener(leptos::ev::keydown, move |ev| {
             if dismissable && controls.is_open() && ev.key() == "Escape" {
@@ -162,7 +162,7 @@ fn close_on_escape<D: Disclosure>(controls: D, dismissable: bool) {
         // reading its (disposed) `controls` on every Escape.
         on_cleanup(move || handle.remove());
     }
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = (controls, dismissable);
 }
 

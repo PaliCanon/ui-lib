@@ -1,7 +1,7 @@
 [package]
 name = "palicanon-ui-lib"
 description = "PaliCanon's UI library: the shell, components, theme, languages and motion every service builds on (promoted from ui-lab once validated)."
-version = "0.2.0"
+version = "0.3.0"
 edition = "2024"
 license = "CC-BY-NC-4.0"
 repository = "https://github.com/PaliCanon/ui-lib"
@@ -17,7 +17,7 @@ leptos_i18n = { version = "0.6.2", default-features = false }
 http = { version = "1", optional = true }
 # Browser side: document.cookie.
 wasm-bindgen = { version = "0.2", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location", "Element", "NodeList", "HtmlElement", "HtmlDivElement", "CssStyleDeclaration", "DomRect", "VisualViewport", "EventTarget", "AddEventListenerOptions"] }
+web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location", "Element", "NodeList", "HtmlElement", "HtmlDivElement", "CssStyleDeclaration", "DomRect", "VisualViewport", "EventTarget", "AddEventListenerOptions", "Storage", "Navigator", "console"] }
 
 [build-dependencies]
 # What leptos_i18n_build wraps, used directly: its diagnostics are needed to
@@ -31,7 +31,7 @@ serde_json = "1"
 # The native test of focus_trap's glue and Dialog's wiring to it runs
 # reactive_graph's real Effect: `effects` on (off under ssr otherwise), on
 # a tokio executor. Every other Effect in the library is browser-only
-# (#[cfg(feature = "hydrate")]), so no other SSR test spawns one.
+# (#[cfg(feature = "browser")]), so no other SSR test spawns one.
 reactive_graph = { version = "0.2", features = ["effects"] }
 any_spawner = { version = "0.3", features = ["tokio"] }
 tokio = { version = "1", features = ["rt"] }
@@ -47,7 +47,12 @@ web-sys = { version = "0.3", features = ["DomImplementation"] }
 
 [features]
 ssr = ["leptos/ssr", "dep:http"]
-hydrate = ["leptos/hydrate", "dep:wasm-bindgen", "dep:web-sys"]
+# The browser-side code (cookies, DOM glue), shared by both client modes.
+browser = ["dep:wasm-bindgen", "dep:web-sys"]
+# The browser takes the server's HTML over.
+hydrate = ["leptos/hydrate", "browser"]
+# The browser builds the page from an empty document (no server).
+csr = ["leptos/csr", "browser"]
 
 [lints.rust]
 unsafe_code = "forbid"

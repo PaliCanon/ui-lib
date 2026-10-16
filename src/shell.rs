@@ -229,7 +229,7 @@ fn SettingsDialog(settings: Option<ViewFn>, settings_extra: Option<ViewFn>) -> i
 /// menu or the Settings dialog when one is open (`escape`). The browser
 /// only: there is no window while the server renders.
 fn close_on_escape(state: ShellState) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     {
         let handle = window_event_listener(leptos::ev::keydown, move |ev| {
             if ev.key() == "Escape" {
@@ -239,7 +239,7 @@ fn close_on_escape(state: ShellState) {
         // Ends with the shell's owner.
         on_cleanup(move || handle.remove());
     }
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = state;
 }
 
@@ -253,7 +253,7 @@ fn close_on_escape(state: ShellState) {
 /// shell's listener runs before the menu's and the dialog's own (it is
 /// registered first, in `AppShell`'s body), so it still sees them open;
 /// theirs then find nothing left to close.
-#[cfg(any(feature = "hydrate", test))]
+#[cfg(any(feature = "browser", test))]
 fn escape(state: ShellState) {
     for open in [state.language_open, state.settings_open] {
         if open.get_untracked() {
@@ -275,7 +275,7 @@ fn escape(state: ShellState) {
 /// a choice applies without a reload. The browser only: the server already
 /// set the right attribute for the first render ([`crate::theme::theme_attribute`]).
 fn apply_theme(theme: RwSignal<Theme>) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     Effect::new(move |_| {
         if let Some(root) = document().document_element() {
             match theme.get().attribute() {
@@ -288,7 +288,7 @@ fn apply_theme(theme: RwSignal<Theme>) {
             }
         }
     });
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = theme;
 }
 
@@ -296,13 +296,13 @@ fn apply_theme(theme: RwSignal<Theme>) {
 /// a choice applies without a reload. The browser only: the server's shell
 /// already wrote the request's language there for the first render.
 fn apply_language(language: RwSignal<Language>) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     Effect::new(move |_| {
         if let Some(root) = document().document_element() {
             let _ = root.set_attribute("lang", language.get().code());
         }
     });
-    #[cfg(not(feature = "hydrate"))]
+    #[cfg(not(feature = "browser"))]
     let _ = language;
 }
 

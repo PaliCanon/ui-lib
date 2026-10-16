@@ -37,22 +37,22 @@ use crate::button::Disclosure;
 /// refused (that one closes again). Call once per container. No-op during
 /// SSR.
 pub fn manage<D: Disclosure>(controls: D, dismissable: bool) {
-    #[cfg(feature = "hydrate")]
+    #[cfg(feature = "browser")]
     hydrate::manage(controls, dismissable);
     // The test-only seam: a test that installed the recording page gets
     // the real glue; every other test renders as SSR does.
-    #[cfg(all(test, not(feature = "hydrate")))]
+    #[cfg(all(test, not(feature = "browser")))]
     if fake::installed() {
         glue::manage::<fake::Recorder, D>(controls, dismissable);
     }
-    #[cfg(not(any(test, feature = "hydrate")))]
+    #[cfg(not(any(test, feature = "browser")))]
     let _ = (controls, dismissable);
 }
 
 /// The one-open-at-a-time rule as plain data, so it is decided — and
 /// tested — without a DOM. Generic over the closer type `C`: the browser
 /// stores a closure, the tests a label.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 mod registry {
     /// Names one `manage` call. Ids are not unique over time: a component
     /// that remounts reuses its id, and the instance it replaced may be
@@ -115,7 +115,7 @@ mod registry {
 /// registry it asks, and the moves around it. Generic over the [`Page`]
 /// that makes those moves, so the same glue drives the browser's DOM and,
 /// in tests, a recording page.
-#[cfg(any(test, feature = "hydrate"))]
+#[cfg(any(test, feature = "browser"))]
 mod glue {
     use std::cell::{Cell, RefCell};
     use std::rc::Rc;
@@ -163,7 +163,7 @@ mod glue {
     }
 
     /// Forgets the current container: each test starts with an empty page.
-    #[cfg(all(test, not(feature = "hydrate")))]
+    #[cfg(all(test, not(feature = "browser")))]
     pub fn reset() {
         CURRENT.with(|c| *c.borrow_mut() = Registry::new());
     }
@@ -251,7 +251,7 @@ mod glue {
 
 /// The browser's [`glue::Page`]: the DOM's focus and the body's scroll,
 /// plus the Tab trap.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 mod hydrate {
     use leptos::prelude::*;
     use wasm_bindgen::JsCast;
@@ -374,7 +374,7 @@ mod hydrate {
 /// a current-thread tokio runtime as `reactive_graph`'s executor (its
 /// `effects` feature is on in the lab's test build), a fresh registry and
 /// a fresh page per test.
-#[cfg(all(test, not(feature = "hydrate")))]
+#[cfg(all(test, not(feature = "browser")))]
 pub(crate) mod fake {
     use std::cell::{Cell, RefCell};
     use std::future::Future;
@@ -602,7 +602,7 @@ mod tests {
 
 /// The glue natively, on the recording page: what each case does to focus
 /// and scroll, beyond the registry's decision.
-#[cfg(all(test, not(feature = "hydrate")))]
+#[cfg(all(test, not(feature = "browser")))]
 mod glue_tests {
     use leptos::prelude::*;
 

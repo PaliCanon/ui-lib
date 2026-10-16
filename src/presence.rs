@@ -72,7 +72,7 @@ pub fn Presence(
 /// The browser only: drives `mounted` and `state` from `show` and `cut`.
 /// There is no window, no frame and no timer while the server renders —
 /// the caller already set both from `show`'s initial value.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn drive(
     show: Signal<bool>,
     cut: Option<Signal<bool>>,
@@ -99,7 +99,7 @@ fn drive(
 
 /// The server: there is no window, no frame and no timer to drive anything
 /// with. The caller already rendered `show`'s initial value directly.
-#[cfg(not(feature = "hydrate"))]
+#[cfg(not(feature = "browser"))]
 fn drive(
     show: Signal<bool>,
     cut: Option<Signal<bool>>,
@@ -115,7 +115,7 @@ fn drive(
 /// is); not yet mounted paints closed first, then open a frame later —
 /// unless `version` moved on by then (`show` went false again first: a
 /// refused open, nothing is ever shown).
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn open(
     mounted: RwSignal<bool>,
     state: RwSignal<&'static str>,
@@ -140,7 +140,7 @@ fn open(
 /// wherever the content currently is, unmounting once the longest
 /// transition `theme.css` gives its wrapper has run — unless `version`
 /// moved on first (re-triggered, or cut, before the timer fires).
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn close(
     mounted: RwSignal<bool>,
     state: RwSignal<&'static str>,
@@ -167,7 +167,7 @@ fn close(
 /// The longest `transition-duration` the browser computes for `wrapper`
 /// (several properties can each give their own, comma-separated), in
 /// milliseconds; `0.0` if it cannot be read (no node, no window).
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn exit_duration_ms(wrapper: NodeRef<leptos::html::Div>) -> f64 {
     let Some(el) = wrapper.get_untracked() else {
         return 0.0;
@@ -185,7 +185,7 @@ fn exit_duration_ms(wrapper: NodeRef<leptos::html::Div>) -> f64 {
 }
 
 /// Parses a single CSS `<time>` (`"200ms"` or `"0.2s"`) into milliseconds.
-#[cfg(feature = "hydrate")]
+#[cfg(feature = "browser")]
 fn parse_duration_ms(value: &str) -> Option<f64> {
     if let Some(ms) = value.strip_suffix("ms") {
         ms.parse().ok()

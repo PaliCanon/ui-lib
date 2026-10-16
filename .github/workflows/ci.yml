@@ -1,6 +1,6 @@
 # From Lsh0x/rankfusion's ci.yml, adapted to a Leptos library: every check
-# runs for the server (`ssr`, native) and the browser (`hydrate`, wasm32),
-# the two builds a service makes of it.
+# runs for the server (`ssr`, native) and the browser (`hydrate`, `csr`,
+# and `browser` alone, wasm32), the builds a service or the app makes of it.
 name: CI
 
 on:
@@ -36,6 +36,10 @@ jobs:
             target: ""
           - feature: hydrate
             target: "--target wasm32-unknown-unknown"
+          - feature: csr
+            target: "--target wasm32-unknown-unknown"
+          - feature: browser
+            target: "--target wasm32-unknown-unknown"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -58,7 +62,7 @@ jobs:
   # ubuntu-latest ships Google Chrome and its matching chromedriver
   # ($CHROMEWEBDRIVER). The runner must be the wasm-bindgen of Cargo.lock.
   test-browser:
-    name: test (hydrate, headless Chrome)
+    name: test (hydrate and csr, headless Chrome)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -71,6 +75,10 @@ jobs:
         with:
           tool: wasm-bindgen@${{ steps.wasm-bindgen.outputs.version }}
       - run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test --locked --features hydrate --target wasm32-unknown-unknown --test hydration
+        env:
+          CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
+      # tests/csr.rs (task 067): csr::mount and the localStorage store.
+      - run: CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test --locked --features csr --target wasm32-unknown-unknown --test csr
         env:
           CARGO_TARGET_WASM32_UNKNOWN_UNKNOWN_RUNNER: wasm-bindgen-test-runner
 
