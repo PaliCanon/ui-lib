@@ -1,6 +1,6 @@
 # 069 PaliText's popover takes an action per entry
 
-status: building · rank: 3 · level: standard · type: feature · request: learn-pali 054 (user, 2026-10-17: add a passage's word to the practice from its popover) · session: learn-pali-054-add-word (the design is 054's v3, its `slot` node) · additive (a minor release; the services build unchanged)
+status: merged · rank: 3 · level: standard · type: feature · request: learn-pali 054 (user, 2026-10-17: add a passage's word to the practice from its popover) · session: learn-pali-054-add-word (the design is 054's v3, its `slot` node) · additive (a minor release; the services build unchanged)
 
 ## Summary
 Rank: difficulty 3 (an optional prop on PaliText rendered under each entry, desktop popover and phone bottom sheet, a gallery section), impact 3 (every service using PaliText; additive) → 3.
@@ -15,3 +15,7 @@ PaliText's word popover lists the DPD entries of the pressed form. learn-pali 05
 | Review fix 1 | done | 4dad070: Z1 `new_ctx` + test through it (mutation: `entry_action: None` in new_ctx fails 2 tests), Z2 recorded calls (mutation: headword as form fails 2), Z4 sheet scroll assertion (mutation: drop `max-sm:overflow-y-auto` fails 2), Z3 not testable in SSR (one render, no reactive re-run): documented on the prop instead. 455 lib tests; fmt, leptosfmt, clippy x4, doc, hydration and csr wasm: exit 0. |
 | Review 1 | done | reviewer d820c0bc359a14e; deep 11552, gemini 11571 (sage thin): Z1 the prop through the component's wiring, Z2 calls per visible entry and the cap, Z4 the phone sheet's scroll taken in (4dad070); Z3 skipped (SSR renders once; the doc says how a reactive slot reads its signal); the gallery done in ui-lab 6551045 |
 | Check | done | orchestrator, 2026-10-17: no visible change without the prop (golden fixtures); the gallery example checked by its SSR test; all checks exit 0 (455 lib tests) |
+| Merge | done | 522011c on main (squash), tag v0.3.1; gallery merged in ui-lab |
+
+## Retro
+One line (standard, no retro agent run: the user asked for speed): a slot whose path through the component cannot be opened in SSR needs a seam (new_ctx) to be tested at all; a test that builds the context by hand proves nothing about the wiring.
