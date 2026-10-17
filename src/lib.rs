@@ -136,7 +136,7 @@ pub use motion::{Edge, Motion};
 pub use nav::{NavEntry, NavList, NavSection};
 pub use pali::{Pali, PaliSize};
 pub use pali_term::PaliTerm;
-pub use pali_text::{PaliText, Token, WordEntry, words};
+pub use pali_text::{EntryAction, PaliText, Token, WordEntry, words};
 pub use persisted::persisted;
 pub use popover::Popover;
 pub use presence::Presence;

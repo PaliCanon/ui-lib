@@ -26,6 +26,13 @@
 //! - **Phone**: the same panel as a bottom sheet (fixed to the bottom,
 //!   full width, rounded top) over a dimmed backdrop, with a close button;
 //!   a tap on the backdrop closes it.
+//! - **An action under each entry** (`entry_action`, optional): the caller
+//!   gives an [`EntryAction`], called for every shown entry with the form
+//!   pressed and the [`WordEntry`]; the view it returns is rendered under
+//!   the entry's meaning, in the popover and the phone's sheet alike (a
+//!   button, a status line). ui-lib owns no string and no rule there; the
+//!   slot adds a top margin and no colour. Without it the panel's markup is
+//!   what it was before the prop (a test pins it).
 //! - **One word open at a time**: pressing another word moves the panel
 //!   there, pressing the open word again closes it. Escape closes it, as
 //!   any [`Popover`]: its window listeners (and, on desktop, the scroll
@@ -57,6 +64,12 @@ pub struct WordEntry {
     /// What it means, in the caller's language.
     pub meaning: String,
 }
+
+/// What a service shows under each entry of the open panel: given the form
+/// pressed (as written in the passage) and the entry, it returns the view.
+/// ui-lib owns no string and no rule of what goes there (a button, a line of
+/// text, nothing): see [`PaliText`]'s `entry_action`.
+pub type EntryAction = Callback<(String, WordEntry), AnyView>;
 
 /// A piece of a passage, as [`words`] cuts it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -309,6 +322,7 @@ struct Ctx {
     open: OpenWord,
     size: PaliSize,
     more_label: Option<Callback<usize, String>>,
+    entry_action: Option<EntryAction>,
 }
 
 /// A Pāli passage whose words open their meaning: each word with entries
@@ -346,20 +360,49 @@ pub fn PaliText(
     /// label that reads a language signal follows it.
     #[prop(optional)]
     more_label: Option<Callback<usize, String>>,
+    /// What to show under each entry, in the desktop popover and the phone's
+    /// sheet alike: called with the form pressed (as written in the passage)
+    /// and the entry, it returns the view (a button, a status line). The
+    /// slot sets layout only (a small top margin around the view) and no
+    /// colour or state: the view brings its own, from `ui-lib`'s components.
+    /// The callback runs once per entry, untracked, each time the panel
+    /// opens: a signal read in its body is read once. To follow a signal
+    /// (a button that becomes an "Added" line), read it inside the returned
+    /// view, in a closure. Absent by default: the panel
+    /// is then exactly what it is without the prop.
+    #[prop(optional)]
+    entry_action: Option<EntryAction>,
     /// Layout classes only (margin, width, position), never colours.
     #[prop(optional, into)]
     layout: String,
 ) -> impl IntoView {
-    let open = OpenWord {
-        id,
-        word: RwSignal::new(None),
-    };
-    let ctx = Ctx {
-        open,
+    passage(
+        &text,
+        entries,
+        new_ctx(id, size, more_label, entry_action, None),
+        layout,
+    )
+}
+
+/// What the component's props make of one passage's shared context, its open
+/// word given (none when the component mounts; a test opens one, since a
+/// click is a browser's).
+fn new_ctx(
+    id: &'static str,
+    size: PaliSize,
+    more_label: Option<Callback<usize, String>>,
+    entry_action: Option<EntryAction>,
+    open: Option<usize>,
+) -> Ctx {
+    Ctx {
+        open: OpenWord {
+            id,
+            word: RwSignal::new(open),
+        },
         size,
         more_label,
-    };
-    passage(&text, entries, ctx, layout)
+        entry_action,
+    }
 }
 
 /// The passage itself, its open word given (so a test can render it open).
@@ -449,6 +492,8 @@ fn WordPanel(
     let (list, more) = shown(&entries);
     let list = list.to_vec();
     let more_label = ctx.more_label;
+    let action = ctx.entry_action;
+    let pressed = form.clone();
     view! {
         <span class=BACKDROP aria-hidden="true" on:click=move |_| open.close()></span>
         <Popover controls=open aria_label=form.clone() layout=PANEL_LAYOUT>
@@ -461,7 +506,12 @@ fn WordPanel(
                         <CloseButton open=open />
                     </span>
                 </div>
-                <ul class="mt-1 space-y-2">{list.into_iter().map(entry_view).collect_view()}</ul>
+                <ul class="mt-1 space-y-2">
+                    {list
+                        .into_iter()
+                        .map(|entry| entry_view(entry, action.map(|run| (run, pressed.clone()))))
+                        .collect_view()}
+                </ul>
                 {(more > 0)
                     .then(|| {
                         view! {
@@ -565,18 +615,24 @@ fn close_on_scroll_or_resize(open: OpenWord) {
     });
 }
 
-/// One entry: the headword in bold and its tag, the meaning under them.
-fn entry_view(entry: WordEntry) -> impl IntoView {
-    view! {
-        <li>
-            <p class="flex flex-wrap items-baseline gap-x-2">
-                <strong class="font-semibold text-heading">
-                    <Pali>{entry.headword}</Pali>
-                </strong>
-                {entry.tag.map(|tag| view! { <span class="text-muted">{tag}</span> })}
-            </p>
-            <p>{entry.meaning}</p>
-        </li>
+/// One entry: the headword in bold and its tag, the meaning under them and,
+/// when the caller gave an action (with the form pressed), its view.
+fn entry_view(entry: WordEntry, action: Option<(EntryAction, String)>) -> AnyView {
+    let slot = action.map(|(run, form)| run.run((form, entry.clone())));
+    let text = view! {
+        <p class="flex flex-wrap items-baseline gap-x-2">
+            <strong class="font-semibold text-heading">
+                <Pali>{entry.headword}</Pali>
+            </strong>
+            {entry.tag.map(|tag| view! { <span class="text-muted">{tag}</span> })}
+        </p>
+        <p>{entry.meaning}</p>
+    };
+    // Two branches, not an `Option` child: a `None` would still write a
+    // placeholder node, and a panel without the slot must stay what it was.
+    match slot {
+        Some(slot) => view! { <li>{text} <div class="mt-1">{slot}</div></li> }.into_any(),
+        None => view! { <li>{text}</li> }.into_any(),
     }
 }
 
@@ -925,6 +981,15 @@ mod render_tests {
 
     /// The passage, with the word at segment `open` open (or none).
     fn rendered(open: Option<usize>, more_label: Option<Callback<usize, String>>) -> String {
+        rendered_with(open, more_label, None)
+    }
+
+    /// The same, with the caller's per-entry action.
+    fn rendered_with(
+        open: Option<usize>,
+        more_label: Option<Callback<usize, String>>,
+        entry_action: Option<EntryAction>,
+    ) -> String {
         Owner::new().with(|| {
             let ctx = Ctx {
                 open: OpenWord {
@@ -933,6 +998,7 @@ mod render_tests {
                 },
                 size: PaliSize::Body,
                 more_label,
+                entry_action,
             };
             passage(LINE, Signal::stored(vakkali_map()), ctx, "mt-2".to_owned()).to_html()
         })
@@ -1056,6 +1122,157 @@ mod render_tests {
         assert!(!html.contains("more"), "{html}");
     }
 
+    /// The action a service passes: one `<button>` naming the pressed form
+    /// and the entry's headword.
+    fn add_action() -> EntryAction {
+        Callback::new(|(form, entry): (String, WordEntry)| {
+            view! { <button data-add=form>{format!("Add {}", entry.headword)}</button> }.into_any()
+        })
+    }
+
+    #[test]
+    fn without_an_action_the_markup_is_what_it_was_before_the_slot() {
+        for (open, golden) in [
+            (
+                None,
+                include_str!("../tests/fixtures/pali_text_closed.html"),
+            ),
+            (
+                Some(0),
+                include_str!("../tests/fixtures/pali_text_open.html"),
+            ),
+            (
+                Some(2),
+                include_str!("../tests/fixtures/pali_text_open_capped.html"),
+            ),
+        ] {
+            assert_eq!(rendered(open, None), golden, "{open:?}");
+        }
+    }
+
+    #[test]
+    fn each_shown_entry_gets_the_action_with_the_form_and_the_entry() {
+        let html = rendered_with(Some(2), None, Some(add_action()));
+        for shown in 0..3 {
+            let wanted = format!(r#"<button data-add="vakkali">Add vakkali {shown}</button>"#);
+            assert_eq!(html.matches(&wanted).count(), 1, "{wanted}: {html}");
+        }
+        assert_eq!(html.matches("data-add").count(), 3, "{html}");
+        assert!(!html.contains("Add vakkali 3"), "hidden entries: {html}");
+    }
+
+    #[test]
+    fn the_action_sits_in_its_entry_after_the_meaning() {
+        let html = rendered_with(Some(0), None, Some(add_action()));
+        let item = &html[html.find("<li>").expect(&html)..html.find("</li>").expect(&html)];
+        let meaning = item.find("enough!; stop!").expect(item);
+        let action = item.find("data-add").expect(item);
+        assert!(meaning < action, "{item}");
+        assert_eq!(html.matches("<li>").count(), 1, "{html}");
+    }
+
+    #[test]
+    fn the_action_is_in_the_open_panel_only() {
+        let closed = rendered_with(None, None, Some(add_action()));
+        assert!(!closed.contains("data-add"), "{closed}");
+    }
+
+    #[test]
+    fn the_slot_wrapper_sets_layout_only() {
+        let html = rendered_with(Some(0), None, Some(add_action()));
+        let at = html.find("<button data-add").expect(&html);
+        let wrapper = &html[html[..at].rfind("<div").expect(&html)..at];
+        assert_eq!(wrapper, r#"<div class="mt-1">"#, "{html}");
+    }
+
+    #[test]
+    fn the_component_takes_the_prop() {
+        let html = Owner::new().with(|| {
+            view! { <PaliText id="pt-panel" text=LINE entries=vakkali_map() entry_action=add_action() /> }
+            .to_html()
+        });
+        assert_eq!(buttons(&html).len(), 2, "closed: no action yet: {html}");
+        assert!(!html.contains("data-add"), "{html}");
+    }
+
+    /// The passage as `PaliText` builds it from its props (`new_ctx`), with
+    /// the word at segment `open` open: the way to render a panel open
+    /// through the component's own wiring, a click being a browser's.
+    fn component_open(open: usize, entry_action: Option<EntryAction>) -> String {
+        Owner::new().with(|| {
+            let ctx = new_ctx("pt-panel", PaliSize::Body, None, entry_action, Some(open));
+            passage(LINE, Signal::stored(vakkali_map()), ctx, String::new()).to_html()
+        })
+    }
+
+    #[test]
+    fn the_prop_reaches_the_open_panel_through_the_components_wiring() {
+        let html = component_open(0, Some(add_action()));
+        assert_eq!(html.matches("data-add").count(), 1, "{html}");
+        assert!(
+            html.contains(r#"<button data-add="alaṃ">Add alaṃ</button>"#),
+            "{html}"
+        );
+        let bare = component_open(0, None);
+        assert!(!bare.contains("data-add"), "{bare}");
+    }
+
+    /// The calls an action recorded: (form, entry).
+    type Calls = std::sync::Arc<std::sync::Mutex<Vec<(String, WordEntry)>>>;
+
+    /// An action that records every call it gets.
+    fn recording() -> (EntryAction, Calls) {
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen = calls.clone();
+        let action = Callback::new(move |(form, entry): (String, WordEntry)| {
+            seen.lock().expect("lock").push((form, entry));
+            ().into_any()
+        });
+        (action, calls)
+    }
+
+    #[test]
+    fn the_action_is_called_once_per_visible_entry_with_the_form_and_the_entry() {
+        let (action, calls) = recording();
+        let _ = component_open(2, Some(action));
+        let expected: Vec<(String, WordEntry)> = (0..3)
+            .map(|i| {
+                (
+                    "vakkali".to_owned(),
+                    entry(&format!("vakkali {i}"), Some("masc"), "a monk"),
+                )
+            })
+            .collect();
+        assert_eq!(
+            *calls.lock().expect("lock"),
+            expected,
+            "three of five, in order"
+        );
+    }
+
+    #[test]
+    fn the_action_is_not_called_while_the_panel_is_closed() {
+        let (action, calls) = recording();
+        let _ = rendered_with(None, None, Some(action));
+        assert_eq!(calls.lock().expect("lock").len(), 0);
+    }
+
+    #[test]
+    fn a_tall_action_stays_inside_the_phone_sheets_scroll() {
+        let html = rendered_with(Some(0), None, Some(add_action()));
+        let classes = panel_classes(&html);
+        for wanted in ["max-sm:max-h-[70vh]", "max-sm:overflow-y-auto"] {
+            assert!(classes.contains(&wanted), "{wanted}: {classes:?}");
+        }
+        let panel = html.find(r#"role="dialog""#).expect(&html);
+        let end = html.find("</ul>").expect(&html);
+        let action = html.find("data-add").expect(&html);
+        assert!(
+            panel < action && action < end,
+            "inside the panel's list: {html}"
+        );
+    }
+
     #[test]
     fn text_and_entries_are_escaped() {
         let mut map = HashMap::new();
@@ -1071,6 +1288,7 @@ mod render_tests {
                 },
                 size: PaliSize::Body,
                 more_label: None,
+                entry_action: None,
             };
             passage("<b>", Signal::stored(map), ctx, String::new()).to_html()
         });
