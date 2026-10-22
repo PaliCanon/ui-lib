@@ -138,7 +138,7 @@ mod tests {
     fn the_lemma_uses_pali_at_body_size() {
         let html = plain();
         assert!(html.contains("font-serif"), "{html}");
-        assert!(html.contains("text-[17px] leading-7"), "{html}");
+        assert!(html.contains("text-[19px] leading-8"), "{html}");
     }
 
     #[test]

@@ -12,12 +12,12 @@ use leptos::prelude::*;
 /// the diacritics are never clipped at any size.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum PaliSize {
-    /// Running text, `text-[17px] leading-7`: a term inside a sentence.
+    /// Running text, `text-[19px] leading-8`: a term inside a sentence.
     #[default]
     Body,
-    /// A headword on its own line, `text-2xl leading-snug`.
+    /// A headword on its own line, `text-3xl leading-snug`.
     Lemma,
-    /// The term a screen is about, `text-4xl leading-tight`.
+    /// The term a screen is about, `text-5xl leading-tight`.
     Display,
 }
 
@@ -25,9 +25,9 @@ pub enum PaliSize {
 /// sizes are written.
 fn classes(size: PaliSize) -> &'static str {
     match size {
-        PaliSize::Body => "text-[17px] leading-7",
-        PaliSize::Lemma => "text-2xl leading-snug",
-        PaliSize::Display => "text-4xl leading-tight",
+        PaliSize::Body => "text-[19px] leading-8",
+        PaliSize::Lemma => "text-3xl leading-snug",
+        PaliSize::Display => "text-5xl leading-tight",
     }
 }
 
@@ -78,25 +78,25 @@ mod tests {
     #[test]
     fn each_size_has_its_own_classes() {
         let body = render(view! { <Pali size=PaliSize::Body>"x"</Pali> });
-        assert!(body.contains("text-[17px] leading-7"), "{body}");
+        assert!(body.contains("text-[19px] leading-8"), "{body}");
         let lemma = render(view! { <Pali size=PaliSize::Lemma>"x"</Pali> });
-        assert!(lemma.contains("text-2xl leading-snug"), "{lemma}");
+        assert!(lemma.contains("text-3xl leading-snug"), "{lemma}");
         let display = render(view! { <Pali size=PaliSize::Display>"x"</Pali> });
-        assert!(display.contains("text-4xl leading-tight"), "{display}");
+        assert!(display.contains("text-5xl leading-tight"), "{display}");
     }
 
     #[test]
     fn a_size_does_not_carry_another_sizes_classes() {
         let lemma = render(view! { <Pali size=PaliSize::Lemma>"x"</Pali> });
-        assert!(!lemma.contains("text-[17px]"), "{lemma}");
-        assert!(!lemma.contains("text-4xl"), "{lemma}");
+        assert!(!lemma.contains("text-[19px]"), "{lemma}");
+        assert!(!lemma.contains("text-5xl"), "{lemma}");
     }
 
     #[test]
     fn the_default_size_is_body() {
         assert_eq!(PaliSize::default(), PaliSize::Body);
         let html = render(view! { <Pali>"x"</Pali> });
-        assert!(html.contains("text-[17px] leading-7"), "{html}");
+        assert!(html.contains("text-[19px] leading-8"), "{html}");
     }
 
     #[test]

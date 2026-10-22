@@ -45,6 +45,8 @@ pub enum IconName {
     Motion,
     /// A magnifier: a search entry.
     Search,
+    /// A plus: what adds (learn-pali's + that adds terms).
+    Plus,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -66,6 +68,7 @@ fn paths(name: IconName) -> &'static [&'static str] {
             "M3 14h7v7H3z",
         ],
         IconName::Close => &["M4 4l16 16", "M20 4L4 20"],
+        IconName::Plus => &["M12 5v14", "M5 12h14"],
         IconName::Dialog => &[
             // The window frame.
             "M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
@@ -203,6 +206,7 @@ mod tests {
             IconName::Globe,
             IconName::Motion,
             IconName::Search,
+            IconName::Plus,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }

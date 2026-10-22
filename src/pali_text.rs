@@ -1045,7 +1045,7 @@ mod render_tests {
         let html = rendered(None, None);
         assert!(html.starts_with(r#"<span class="mt-2""#), "{html}");
         assert!(html.contains(r#"lang="pi""#), "{html}");
-        assert!(html.contains("text-[17px] leading-7"), "{html}");
+        assert!(html.contains("text-[19px] leading-8"), "{html}");
         assert!(html.contains(", "), "{html}");
         for tag in buttons(&html) {
             assert!(!tag.contains(','), "{tag}");
