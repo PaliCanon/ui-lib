@@ -91,3 +91,12 @@ Baseline: 455 lib tests + 11 in tests/cfg_gates.rs + 1 doctest (`cargo test --lo
 | Measure | done | orchestrator, CDP 390x844 on the gallery at :3070 (wt/070/ui-lab against this worktree): every phone navigation row x 12, h 52, icon x 28, text x 62 (7 entries, English, Settings); the menu button 44x44 at x 338; the lotus img not inside a button; one header button; scrollWidth == innerWidth 390/390; captures phone/070-bar.png, 070-nav-open.png. Follow-up for the ui-lab step: the gallery home text still says the lotus opens the navigation on a phone |
 | Check | done | the user, 2026-10-22, on the gallery at :3070 and the captures: «ça m'a l'air bien pour le menu» (branch tip 79f8da0, lane worktrees untouched) |
 | Merge | done | 067e0bb on main (squash); tag v0.4.0 at the release commit (Cargo.toml and Cargo.lock bumped) |
+
+## Retro
+Retro agent: retro-discussion df106e763bd2c49, summary 14020; voice gemini 14021. Validated by the orchestrator, 2026-10-22 (docs 127f54a):
+- the review range was `origin/main..` while main had moved → prompts/review.md: the range starts at the merge base.
+- the `Size::Sm` ruling reached the task file only at review → process.md: a ruling in a brief or a message is written in the task file the same turn.
+- two of three review rounds on tests and docs (a test that could not fail, a `hidden` match `sm:hidden` satisfied → task 072) → the lane brief already asks for a mutation per behaviour; the reviewer reads the tests as a lens (review.md §Tn).
+- sage 504 in round 1, gemini-flash-lite thin at rank 3 → no rule: the voice order already falls through to deep.
+- the lanes' token use → prompts/task-brief.md (one check script, no polling, one mutation per behaviour; same day).
+- the release tag without its version bump → conventions/ui-lib.md (same day, 071).
