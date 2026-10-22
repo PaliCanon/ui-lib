@@ -96,16 +96,29 @@ fn items_at<'a>(items: &'a [MenuItem], path: &[usize]) -> &'a [MenuItem] {
 }
 
 /// The icon, label and right-aligned extra (a chevron, a check mark) of one
-/// row, shared by every kind of item.
+/// row, shared by every kind of item. The gap between the icon and the label
+/// follows the row's `size`, like the button's own `gap` (`Variant::Nav`):
+/// `gap-4` at [`Size::Lg`] (the phone navigation's rows), `gap-3` at every
+/// other size (the desktop menu and the drill menu, at [`Size::Md`]).
 pub(crate) fn item_row(
     icon: Option<IconName>,
     label: impl IntoView,
     right: impl IntoView,
+    size: Size,
 ) -> impl IntoView {
+    let icon = icon.map(|name| view! { <Icon name=name /> });
+    let left = match size {
+        Size::Lg => {
+            view! { <span class="flex flex-1 items-center gap-4">{icon} <span>{label}</span></span> }
+                .into_any()
+        }
+        _ => {
+            view! { <span class="flex flex-1 items-center gap-3">{icon} <span>{label}</span></span> }
+                .into_any()
+        }
+    };
     view! {
-        <span class="flex flex-1 items-center gap-3">
-            {icon.map(|name| view! { <Icon name=name /> })} <span>{label}</span>
-        </span>
+        {left}
         {right}
     }
 }
@@ -390,7 +403,7 @@ fn desktop_item_content(
             }
             .into_any()
         }
-        other => leaf_item(other, close_all).into_any(),
+        other => leaf_item(other, close_all, Size::Md).into_any(),
     }
 }
 
@@ -419,7 +432,12 @@ fn SubmenuTrigger(
                 }
             }
         >
-            {item_row(icon, label, view! { <Icon name=IconName::ChevronRight size=14 /> })}
+            {item_row(
+                icon,
+                label,
+                view! { <Icon name=IconName::ChevronRight size=14 /> },
+                Size::Md,
+            )}
         </button>
     }
 }
@@ -429,12 +447,14 @@ fn SubmenuTrigger(
 /// A [`MenuItem::Link`], [`MenuItem::Action`], [`MenuItem::Choice`] or
 /// [`MenuItem::Custom`] as one row; used by both the desktop and the mobile
 /// rendering (a [`MenuItem::Submenu`] is handled by its own caller — it
-/// behaves differently on each).
-pub(crate) fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoView {
+/// behaves differently on each). `size` is the row's size, for its classes
+/// and its [`item_row`]: `Size::Md` on the desktop and in a [`DrillMenu`], the
+/// phone navigation's `Size::Lg` beside its other rows.
+pub(crate) fn leaf_item(item: MenuItem, close_all: Callback<()>, size: Size) -> impl IntoView {
     match item {
         MenuItem::Link { label, icon, href } => view! {
-            <a href=href role="menuitem" class=classes(Variant::Nav, Size::Md, "w-full")>
-                {item_row(icon, label, ())}
+            <a href=href role="menuitem" class=classes(Variant::Nav, size, "w-full")>
+                {item_row(icon, label, (), size)}
             </a>
         }
         .into_any(),
@@ -446,13 +466,13 @@ pub(crate) fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoVie
             <button
                 type="button"
                 role="menuitem"
-                class=classes(Variant::Nav, Size::Md, "w-full")
+                class=classes(Variant::Nav, size, "w-full")
                 on:click=move |_| {
                     on_select.run(());
                     close_all.run(());
                 }
             >
-                {item_row(icon, label, ())}
+                {item_row(icon, label, (), size)}
             </button>
         }
         .into_any(),
@@ -466,10 +486,10 @@ pub(crate) fn leaf_item(item: MenuItem, close_all: Callback<()>) -> impl IntoVie
                 type="button"
                 role="menuitemradio"
                 aria-checked=move || selected.get().to_string()
-                class=classes(Variant::Nav, Size::Md, "w-full")
+                class=classes(Variant::Nav, size, "w-full")
                 on:click=move |_| on_select.run(())
             >
-                {item_row(icon, label, view! { <CheckMark shown=selected /> })}
+                {item_row(icon, label, view! { <CheckMark shown=selected /> }, size)}
             </button>
         }
         .into_any(),
@@ -513,14 +533,15 @@ pub fn DrillMenu(
 
 /// The "Back" row of a [`DrillMenu`]: shown only once drilled into a
 /// submenu, it drops the deepest level of `path`. Its label is the
-/// library's own string, in the current language.
+/// library's own string, in the current language. `size` is the row's size,
+/// `Size::Md` unless the phone navigation asks for its `Size::Lg`.
 #[component]
-pub(crate) fn BackRow(path: Path) -> impl IntoView {
+pub(crate) fn BackRow(path: Path, #[prop(default = Size::Md)] size: Size) -> impl IntoView {
     let t = strings();
     view! {
         <button
             type="button"
-            class=classes(Variant::Nav, Size::Md, "w-full")
+            class=classes(Variant::Nav, size, "w-full")
             hidden=move || path.get().is_empty()
             on:click=move |_| {
                 path.update(|p| {
@@ -528,7 +549,7 @@ pub(crate) fn BackRow(path: Path) -> impl IntoView {
                 });
             }
         >
-            {item_row(Some(IconName::ArrowLeft), move || td_string!(t.locale(), back), ())}
+            {item_row(Some(IconName::ArrowLeft), move || td_string!(t.locale(), back), (), size)}
         </button>
     }
 }
@@ -548,11 +569,16 @@ fn DrillItem(item: MenuItem, path: Path, index: usize, close_all: Callback<()>) 
                     path.update(|p| p.push(index));
                 }
             >
-                {item_row(icon, label, view! { <Icon name=IconName::ChevronRight size=14 /> })}
+                {item_row(
+                    icon,
+                    label,
+                    view! { <Icon name=IconName::ChevronRight size=14 /> },
+                    Size::Md,
+                )}
             </button>
         }
         .into_any(),
-        other => leaf_item(other, close_all).into_any(),
+        other => leaf_item(other, close_all, Size::Md).into_any(),
     }
 }
 
@@ -645,7 +671,9 @@ mod tests {
                 selected,
                 on_select: Callback::new(|()| {}),
             };
-            leaf_item(item, Callback::new(|()| {})).into_any().to_html()
+            leaf_item(item, Callback::new(|()| {}), Size::Md)
+                .into_any()
+                .to_html()
         });
         assert!(html.contains(r#"role="menuitemradio""#), "{html}");
         assert!(html.contains(r#"aria-checked="true""#), "{html}");
@@ -679,5 +707,166 @@ mod tests {
             back[back.rfind("<button").unwrap()..].contains("hidden"),
             "{html}"
         );
+    }
+
+    // --- The row size (070): goldens captured from the code before the
+    // size parameter existed, and the size's own tests. ---
+
+    /// `classes(Variant::Nav, Size::Md, "w-full")` as it was before 070,
+    /// written out: the goldens below stand on bytes, not on `classes`.
+    const MD_ROW: &str = "inline-flex shrink-0 cursor-pointer select-none items-center font-medium transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-40 w-full justify-start whitespace-nowrap rounded-xl text-muted hover:bg-chip hover:text-heading active:bg-chip-hover aria-[current=page]:bg-gold/10 aria-[current=page]:text-heading aria-checked:bg-gold/15 aria-checked:text-heading aria-expanded:bg-gold/15 aria-expanded:text-heading h-11 gap-3 px-[13px] text-sm w-full";
+
+    /// The items of the goldens: a submenu, a checked choice, a link and an
+    /// action without an icon.
+    fn golden_items() -> Vec<MenuItem> {
+        vec![
+            MenuItem::Submenu {
+                label: "Theme",
+                icon: Some(IconName::Sun),
+                items: vec![],
+            },
+            MenuItem::Choice {
+                label: "Dark",
+                icon: Some(IconName::Moon),
+                selected: Signal::derive(|| true),
+                on_select: Callback::new(|()| {}),
+            },
+            MenuItem::Link {
+                label: "Home",
+                icon: Some(IconName::Globe),
+                href: "/home",
+            },
+            MenuItem::Action {
+                label: "Say hello",
+                icon: None,
+                on_select: Callback::new(|()| {}),
+            },
+        ]
+    }
+
+    /// The `DrillMenu` of `golden_items`, captured before the row size.
+    const DRILL_GOLDEN: &str = r#"<div role="menu" class="flex flex-col gap-0.5"><button type="button" hidden class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M19 12H5"></path><path d="M11 18l-6-6 6-6"></path><!></svg><span>Back</span></span><!></button><button type="button" role="menuitem" aria-haspopup="true" class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"></path><path d="M12 1v2"></path><path d="M12 21v2"></path><path d="M4.22 4.22l1.42 1.42"></path><path d="M18.36 18.36l1.42 1.42"></path><path d="M1 12h2"></path><path d="M21 12h2"></path><path d="M4.22 19.78l1.42-1.42"></path><path d="M18.36 5.64l1.42-1.42"></path><!></svg><span>Theme</span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M9 18l6-6-6-6"></path><!></svg></button><button type="button" role="menuitemradio" aria-checked="true" class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><!></svg><span>Dark</span></span><span aria-hidden="true" class="w-4 text-center text-gold transition-opacity duration-150"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M20 6L9 17l-5-5"></path><!></svg></span></button><a href="/home" role="menuitem" class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><!></svg><span>Home</span></span><!></a><button type="button" role="menuitem" class="@ROW@"><span class="flex flex-1 items-center gap-3"><!><span>Say hello</span></span><!></button><!></div>"#;
+
+    /// The desktop `Menu` of `golden_items`, captured before the row size.
+    const DESKTOP_GOLDEN: &str = r#"<div id="pc-settings" role="dialog" aria-label="Settings" class="rounded-xl border border-line bg-card shadow-lg p-2"><div role="menu" class="flex w-max min-w-56 flex-col gap-0.5 p-1"><div class="relative"><button type="button" role="menuitem" aria-haspopup="true" aria-expanded="false" class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10z"></path><path d="M12 1v2"></path><path d="M12 21v2"></path><path d="M4.22 4.22l1.42 1.42"></path><path d="M18.36 18.36l1.42 1.42"></path><path d="M1 12h2"></path><path d="M21 12h2"></path><path d="M4.22 19.78l1.42-1.42"></path><path d="M18.36 5.64l1.42-1.42"></path><!></svg><span>Theme</span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M9 18l6-6-6-6"></path><!></svg></button><div hidden class="rounded-xl border border-line bg-card shadow-lg p-2 absolute -top-3 left-full z-10 ml-1"><div role="menu" class="flex w-max min-w-56 flex-col gap-0.5 p-1"><!></div></div></div><div class="relative"><button type="button" role="menuitemradio" aria-checked="true" class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path><!></svg><span>Dark</span></span><span aria-hidden="true" class="w-4 text-center text-gold transition-opacity duration-150"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M20 6L9 17l-5-5"></path><!></svg></span></button></div><div class="relative"><a href="/home" role="menuitem" class="@ROW@"><span class="flex flex-1 items-center gap-3"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="shrink-0"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"></path><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path><!></svg><span>Home</span></span><!></a></div><div class="relative"><button type="button" role="menuitem" class="@ROW@"><span class="flex flex-1 items-center gap-3"><!><span>Say hello</span></span><!></button></div><!></div></div>"#;
+
+    #[test]
+    fn the_drill_menu_renders_the_same_bytes_as_before_the_row_size() {
+        let html = Owner::new().with(|| view! { <DrillMenu items=golden_items() /> }.to_html());
+        assert_eq!(html, DRILL_GOLDEN.replace("@ROW@", MD_ROW));
+    }
+
+    #[test]
+    fn the_desktop_menu_renders_the_same_bytes_as_before_the_row_size() {
+        let html = Owner::new().with(|| {
+            let controls = Disclosed::new("pc-settings", RwSignal::new(true));
+            view! { <Menu controls=controls aria_label="Settings" items=golden_items() /> }
+                .to_html()
+        });
+        assert_eq!(html, DESKTOP_GOLDEN.replace("@ROW@", MD_ROW));
+    }
+
+    fn row_html(size: Size) -> String {
+        Owner::new().with(|| {
+            item_row(Some(IconName::Globe), "Label", (), size)
+                .into_any()
+                .to_html()
+        })
+    }
+
+    #[test]
+    fn item_row_gap_follows_the_size_and_nothing_else_differs() {
+        let md = row_html(Size::Md);
+        let lg = row_html(Size::Lg);
+        assert!(
+            md.contains(r#"<span class="flex flex-1 items-center gap-3">"#),
+            "{md}"
+        );
+        assert!(
+            lg.contains(r#"<span class="flex flex-1 items-center gap-4">"#),
+            "{lg}"
+        );
+        assert_eq!(lg.replace("gap-4", "gap-3"), md);
+    }
+
+    /// `Size::Sm` is not `Lg`: it falls to the desktop gap, `gap-3` (the
+    /// ruling of 070 round 1). A mutation changing the fallback to `gap-4`
+    /// turns it red.
+    #[test]
+    fn item_row_at_the_small_size_keeps_the_gap_of_the_medium_row() {
+        let sm = row_html(Size::Sm);
+        assert!(
+            sm.contains(r#"<span class="flex flex-1 items-center gap-3">"#),
+            "{sm}"
+        );
+        assert!(!sm.contains("gap-4"), "{sm}");
+        assert_eq!(sm, row_html(Size::Md));
+    }
+
+    /// A Link, an Action and a Choice, each a row.
+    fn leaf_rows() -> Vec<(&'static str, MenuItem)> {
+        let items = golden_items();
+        vec![
+            ("choice", items[1].clone()),
+            ("link", items[2].clone()),
+            (
+                "action",
+                MenuItem::Action {
+                    label: "Go",
+                    icon: Some(IconName::Globe),
+                    on_select: Callback::new(|()| {}),
+                },
+            ),
+        ]
+    }
+
+    #[test]
+    fn a_leaf_row_takes_the_classes_and_the_gap_of_its_size() {
+        for (size, gap, other) in [(Size::Md, "gap-3", "gap-4"), (Size::Lg, "gap-4", "gap-3")] {
+            for (kind, item) in leaf_rows() {
+                let html = Owner::new().with(|| {
+                    leaf_item(item, Callback::new(|()| {}), size)
+                        .into_any()
+                        .to_html()
+                });
+                assert!(
+                    html.contains(&format!(
+                        r#"class="{}""#,
+                        classes(Variant::Nav, size, "w-full")
+                    )),
+                    "{kind} {size:?}: {html}"
+                );
+                assert!(
+                    html.contains(&format!(r#"<span class="flex flex-1 items-center {gap}">"#)),
+                    "{kind} {size:?}: {html}"
+                );
+                assert!(
+                    !html.contains(&format!("items-center {other}")),
+                    "{kind} {size:?}: {html}"
+                );
+            }
+        }
+    }
+
+    fn back_html(view: impl IntoView) -> String {
+        Owner::new().with(|| view.into_any().to_html())
+    }
+
+    #[test]
+    fn the_back_row_defaults_to_the_medium_row_and_takes_a_size() {
+        let path: Path = RwSignal::new(Vec::new());
+        let default = back_html(view! { <BackRow path=path /> });
+        let lg = back_html(view! { <BackRow path=path size=Size::Lg /> });
+        assert!(default.contains(MD_ROW), "{default}");
+        assert!(default.contains("items-center gap-3"), "{default}");
+        assert!(
+            lg.contains(&format!(
+                r#"class="{}""#,
+                classes(Variant::Nav, Size::Lg, "w-full")
+            )),
+            "{lg}"
+        );
+        assert!(lg.contains("items-center gap-4"), "{lg}");
+        assert!(!lg.contains("gap-3"), "{lg}");
     }
 }

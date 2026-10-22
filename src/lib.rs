@@ -29,17 +29,19 @@
 //!   (inline, drilling down) on mobile.
 //! - [`dialog`] — a modal [`dialog::Dialog`] over a dimmed backdrop:
 //!   a header, a scrolling body of [`dialog::DialogSection`]s, an optional
-//!   footer. Focus is managed by `focus_trap`, an internal module it alone
-//!   uses.
+//!   footer; a full-screen sheet on a phone by default, or a small centred
+//!   card at every width with [`dialog::DialogSize::Popup`]. Focus is
+//!   managed by `focus_trap`, an internal module it alone uses.
 //! - [`theme`] — the reading theme (Light, Dark, System), [`theme::theme_signal`],
 //!   [`theme::ThemePicker`] (picture cards, built on [`button::ChoiceCards`])
 //!   and [`theme::theme_menu`], a Menu-based theme submenu kept for callers
 //!   still using [`menu::Menu`] directly.
 //! - [`shell`] — the app shell: the navigation rail (desktop) and the
-//!   full-screen navigation (mobile), opened and closed with the lotus, with
-//!   Language (the globe and the current language's name, opening a menu of
-//!   the languages) and Settings (a [`dialog::Dialog`], the theme as a
-//!   [`theme::ThemePicker`] by default) pinned at the bottom.
+//!   full-screen navigation (mobile). The lotus opens the rail; on a phone it
+//!   is the brand only, and a menu button opens the navigation. Language (the
+//!   globe and the current language's name, opening a menu of the languages)
+//!   and Settings (a [`dialog::Dialog`], the theme as a
+//!   [`theme::ThemePicker`] by default) are pinned at the bottom.
 //! - [`footer`] — [`footer::Footer`]: the caller's own links and credits;
 //!   on a phone stacked and centred, from `sm` a 1fr/auto/1fr grid — the
 //!   links centred on the full width, the credits at the right edge; no
@@ -120,7 +122,7 @@ pub use button::{
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
 };
 pub use carousel::Carousel;
-pub use dialog::{Dialog, DialogSection};
+pub use dialog::{Dialog, DialogSection, DialogSize};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use footer::{Footer, FooterLink};
 // A glob: `app_root` and `hydrate` exist only under `hydrate`, a cfg that

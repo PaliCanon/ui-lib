@@ -111,18 +111,20 @@ pub(crate) fn MobileLanguage(
 /// choices, under a Back row), laid out like a
 /// [`DrillMenu`](crate::menu::DrillMenu): the row
 /// shows the globe and `current`'s name, live; the choices are built with
-/// it and only hidden until it is tapped.
+/// it and only hidden until it is tapped. Its rows (the language row, Back
+/// and each choice) are `Size::Lg`, the size of the navigation's other phone
+/// rows (`Size::Lg` entries, the Settings row): one left edge, one height.
 pub(crate) fn mobile_language(current: RwSignal<Language>, path: Path) -> impl IntoView {
     let at_top = move || path.get().is_empty();
     let stay = Callback::new(|()| {});
     view! {
         <div role="menu" class="flex flex-col gap-0.5">
-            <BackRow path=path />
+            <BackRow path=path size=Size::Lg />
             <button
                 type="button"
                 role="menuitem"
                 aria-haspopup="true"
-                class=classes(Variant::Nav, Size::Md, "w-full")
+                class=classes(Variant::Nav, Size::Lg, "w-full")
                 hidden=move || !at_top()
                 on:click=move |_| path.set(vec![0])
             >
@@ -130,12 +132,13 @@ pub(crate) fn mobile_language(current: RwSignal<Language>, path: Path) -> impl I
                     Some(IconName::Globe),
                     move || current.get().name(),
                     view! { <Icon name=IconName::ChevronRight size=14 /> },
+                    Size::Lg,
                 )}
             </button>
             <div role="group" class="flex flex-col gap-0.5" hidden=at_top>
                 {language_choices(current)
                     .into_iter()
-                    .map(|item| leaf_item(item, stay))
+                    .map(|item| leaf_item(item, stay, Size::Lg))
                     .collect_view()}
             </div>
         </div>
@@ -303,5 +306,89 @@ mod tests {
             entry.to_html()
         });
         assert!(html.contains("Français"), "should show Français: {html}");
+    }
+
+    /// The phone navigation's row, as every entry of it carries it: what
+    /// `classes(Variant::Nav, Size::Lg, ..)` ends with.
+    const PHONE_ROW: &str = "h-13 gap-4 px-4 text-base";
+
+    /// The `class` attribute of the opening tag `tag`.
+    fn class_of(tag: &str) -> &str {
+        let at = tag.find(r#"class=""#).unwrap() + r#"class=""#.len();
+        &tag[at..at + tag[at..].find('"').unwrap()]
+    }
+
+    /// The mobile language rows (070): the Back row, the language row and
+    /// the three choices all carry the large row of the other phone rows,
+    /// wherever the drill stands.
+    #[test]
+    fn the_mobile_language_rows_are_the_large_rows_of_the_phone_navigation() {
+        for drilled in [false, true] {
+            let html = Owner::new().with(|| {
+                let path = RwSignal::new(if drilled { vec![0] } else { Vec::new() });
+                language_signal().set(Language::En);
+                mobile_language(language_signal(), path)
+                    .into_any()
+                    .to_html()
+            });
+            let large = classes(Variant::Nav, Size::Lg, "w-full");
+            let rows = [
+                button_with(&html, "Back"),
+                tag_with(&html, r#"aria-haspopup="true""#),
+            ];
+            for row in rows {
+                assert_eq!(class_of(row), large, "drilled {drilled}: {row}");
+            }
+            let choices: Vec<&str> = html
+                .split("<button")
+                .filter(|part| part.contains(r#"role="menuitemradio""#))
+                .map(|part| &part[..part.find('>').unwrap()])
+                .collect();
+            assert_eq!(choices.len(), 3, "{html}");
+            for choice in choices {
+                assert_eq!(class_of(choice), large, "drilled {drilled}: {choice}");
+            }
+            assert!(
+                !html.contains("h-11") && !html.contains("px-[13px]"),
+                "no medium row left: {html}"
+            );
+            assert_eq!(
+                html.matches(r#"<span class="flex flex-1 items-center gap-4">"#)
+                    .count(),
+                5,
+                "Back, the language row and 3 choices: {html}"
+            );
+            assert!(!html.contains("items-center gap-3"), "{html}");
+        }
+    }
+
+    /// The pair: the language row and a `NavList` entry of the same phone
+    /// navigation share the large row's left edge, gap and height.
+    #[test]
+    fn the_language_row_and_a_navigation_entry_share_one_row_class() {
+        use crate::icon::IconName;
+        use crate::nav::{MobileSections, NavEntry, NavList, NavSection};
+
+        let (nav, language) = Owner::new().with(|| {
+            let list = NavList::new(
+                vec![NavSection {
+                    title: None,
+                    entries: vec![NavEntry {
+                        label: "Buttons",
+                        icon: IconName::Button,
+                        href: "/buttons",
+                    }],
+                }],
+                "/".to_string(),
+            );
+            (
+                view! { <MobileSections nav=list /> }.to_html(),
+                view! { <MobileLanguage current=language_signal() /> }.to_html(),
+            )
+        });
+        let entry = tag_with(&nav, r#"href="/buttons""#);
+        let row = tag_with(&language, r#"aria-haspopup="true""#);
+        assert!(class_of(entry).contains(PHONE_ROW), "{entry}");
+        assert!(class_of(row).contains(PHONE_ROW), "{row}");
     }
 }

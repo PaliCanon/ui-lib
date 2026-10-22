@@ -9,9 +9,13 @@
 //!   then the rail-and-page row — a short page is one screen on both.
 //!   Open or closed is remembered
 //!   ([`persisted`](fn@crate::persisted), cookie `pc_rail`), across pages and subdomains.
-//! - **Mobile**: a top bar with the lotus; the lotus opens the navigation
-//!   full screen, the lotus or ✕ closes it. Always closed when a page loads,
-//!   and always reopened at its top (never drilled into the languages).
+//! - **Mobile**: a top bar with the brand (the lotus and the name, inert:
+//!   neither a button nor a link) at the left and a menu button at the right
+//!   (the Menu icon, 44 px); the menu button opens the navigation full
+//!   screen and closes it again (it is one disclosure button), beside the
+//!   ✕ in the open header. The lotus opens nothing on the phone. Always
+//!   closed when a page loads, and always reopened at its top (never drilled
+//!   into the languages).
 //! - **Escape** closes whichever is open, innermost first: with the
 //!   language menu or the Settings dialog open, only that one; drilled
 //!   into the mobile languages, it backs out one level.
@@ -98,7 +102,8 @@ pub struct ShellState {
     pub(crate) language_path: Path,
 }
 
-/// The lotus, the content of the buttons that open and close the navigation.
+/// The lotus, the content of the rail's button and half of the phone's
+/// [`Brand`].
 #[component]
 fn Lotus(logo: &'static str) -> impl IntoView {
     view! { <img src=logo alt="" width="28" height="28" class="size-7" /> }
@@ -306,8 +311,8 @@ fn apply_language(language: RwSignal<Language>) {
     let _ = language;
 }
 
-/// The lotus button that opens and closes `controls` (the rail, or the
-/// mobile navigation), named "Open navigation" / "Close navigation" in the
+/// The lotus button that opens and closes `controls` (the desktop rail),
+/// named "Open navigation" / "Close navigation" in the
 /// current language: rebuilt when it changes.
 #[component]
 fn LotusToggle<D: Disclosure>(controls: D, logo: &'static str) -> impl IntoView {
@@ -325,6 +330,48 @@ fn LotusToggle<D: Disclosure>(controls: D, logo: &'static str) -> impl IntoView 
                 <Lotus logo=logo />
             </DisclosureButton>
         }
+    }
+}
+
+/// The menu button of the phone bar: opens and closes `controls` (the
+/// mobile navigation), named "Open navigation" / "Close navigation" in the
+/// current language (rebuilt when it changes). A `DisclosureButton`, so it
+/// carries `aria-expanded` and `aria-controls`; the Menu icon in the Icon
+/// variant at `Size::Md` (44 px), `shrink-0` so the env badge beside it
+/// truncates first. Phone only: it sits in the phone bar, which the desktop
+/// hides.
+#[component]
+fn MenuButton<D: Disclosure>(controls: D) -> impl IntoView {
+    let t = strings();
+    move || {
+        let open = td_string!(t.locale(), open_navigation);
+        let close = td_string!(t.locale(), close_navigation);
+        view! {
+            <DisclosureButton
+                controls=controls
+                variant=Variant::Icon
+                size=Size::Md
+                label_closed=open
+                label_open=close
+                layout="shrink-0"
+            >
+                <Icon name=IconName::Menu />
+            </DisclosureButton>
+        }
+    }
+}
+
+/// The phone's brand: the lotus and the name, neither a button nor a link
+/// (the shell has no home URL). The lotus sits in a centred 44 px box, so it
+/// stays exactly where the old lotus button's image was. Used by the phone
+/// bar and by the open navigation's header, which show the very same markup.
+#[component]
+fn Brand(logo: &'static str) -> impl IntoView {
+    view! {
+        <div class="flex size-11 items-center justify-center">
+            <Lotus logo=logo />
+        </div>
+        <Wordmark shown=Signal::derive(|| true) />
     }
 }
 
@@ -429,9 +476,12 @@ fn RailSettingsEntry(settings: Disclosed, #[prop(into)] shown: Signal<bool>) -> 
     }
 }
 
-/// The mobile top bar, and the full-screen navigation its lotus opens. The
-/// env badge, when given, sits on the right, truncating its env (the
-/// branch) rather than pushing the lotus and name off screen.
+/// The mobile top bar, and the full-screen navigation its menu button
+/// opens. Phone behaviour: the brand ([`Brand`], inert) at the left; at the
+/// right one group holding the env badge, when given, then the
+/// [`MenuButton`]. The badge truncates its env (the branch) first
+/// (`min-w-0`, `max-w-[8rem]`); the button is `shrink-0`, so it is never
+/// overlapped and stays the one control that opens `#pc-menu`.
 #[component]
 fn MobileNav(
     logo: &'static str,
@@ -443,16 +493,17 @@ fn MobileNav(
     let menu = mobile_navigation(state);
     view! {
         <header class="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-rail px-2 sm:hidden">
-            <LotusToggle controls=menu logo=logo />
-            <Wordmark shown=Signal::derive(|| true) />
-            {env_badge
-                .map(|info| {
-                    view! {
-                        <div class="ml-auto max-w-[8rem]">
-                            <EnvBadge env=info.env sha=info.sha />
-                        </div>
-                    }
-                })}
+            <Brand logo=logo />
+            <div class="ml-auto flex min-w-0 items-center gap-2">
+                {env_badge
+                    .map(|info| {
+                        view! {
+                            <div class="min-w-0 max-w-[8rem]">
+                                <EnvBadge env=info.env sha=info.sha />
+                            </div>
+                        }
+                    })} <MenuButton controls=menu />
+            </div>
         </header>
         <div
             id="pc-menu"
@@ -477,8 +528,8 @@ fn MobileNav(
     }
 }
 
-/// What opens and closes the full-screen navigation: the lotus, the ✕,
-/// an entry, and Escape all go through it.
+/// What opens and closes the full-screen navigation: the menu button, the
+/// ✕, an entry, and Escape all go through it.
 fn mobile_navigation(state: ShellState) -> MobileNavigation {
     MobileNavigation {
         open: state.menu_open,
@@ -552,15 +603,15 @@ fn MobileSettings(settings: Disclosed) -> impl IntoView {
     }
 }
 
-/// The top of the full-screen navigation: the lotus (closes it), the name,
-/// and a close cross, named "Close navigation" in the current language.
+/// The top of the full-screen navigation: the [`Brand`] (inert, as in the
+/// bar) at the left and a close cross at the right, named "Close
+/// navigation" in the current language.
 #[component]
 fn MobileMenuHeader(logo: &'static str, menu: MobileNavigation) -> impl IntoView {
     let t = strings();
     view! {
         <div class="flex h-14 items-center gap-2 border-b border-line px-2">
-            <LotusToggle controls=menu logo=logo />
-            <Wordmark shown=Signal::derive(|| true) />
+            <Brand logo=logo />
             {move || {
                 view! {
                     <Button
@@ -1594,5 +1645,383 @@ mod tests {
             !html.contains("Extra"),
             "settings_extra should be ignored when settings is provided"
         );
+    }
+
+    // ---- the phone bar: a menu button opens the navigation, the lotus is
+    // the brand (070 lane A) ----
+
+    /// The shell with an env badge, for a `Cookie` header if any.
+    fn render_with_badge(cookies: Option<&str>) -> String {
+        use crate::EnvBadgeInfo;
+        Owner::new().with(|| {
+            if let Some(cookies) = cookies {
+                let request = http::Request::builder()
+                    .header(http::header::COOKIE, cookies)
+                    .body(())
+                    .unwrap();
+                provide_context(request.into_parts().0);
+            }
+            view! {
+                <AppShell env_badge=EnvBadgeInfo {
+                    env: "main",
+                    sha: "a1b2c3f",
+                }>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        })
+    }
+
+    /// The phone top bar alone: its `<header>`, open tag to close tag.
+    fn bar(html: &str) -> &str {
+        let start = html.find("<header").expect("the phone bar");
+        &html[start..start + html[start..].find("</header>").expect("bar end")]
+    }
+
+    /// The open navigation's header: from the `#pc-menu` tag to the
+    /// container of the entries.
+    fn open_header(html: &str) -> &str {
+        let menu = mobile(html);
+        &menu[..menu
+            .find(r#"<div class="flex flex-col gap-1 overflow-y-auto p-3""#)
+            .expect("the entries container")]
+    }
+
+    /// Every `<button ...</button>` span of `region`.
+    fn buttons(region: &str) -> Vec<&str> {
+        let mut spans = Vec::new();
+        let mut rest = region;
+        while let Some(start) = rest.find("<button") {
+            let end = rest[start..].find("</button>").expect("button end") + "</button>".len();
+            spans.push(&rest[start..start + end]);
+            rest = &rest[start + end..];
+        }
+        spans
+    }
+
+    /// The open tag of the first element of `region` that holds `needle`.
+    fn tag_with<'a>(region: &'a str, needle: &str) -> &'a str {
+        let at = region.find(needle).expect(needle);
+        let start = region[..at].rfind('<').unwrap();
+        &region[start..=at + region[at..].find('>').unwrap()]
+    }
+
+    /// The brand's markup: its 44 px box to the end of the wordmark.
+    fn brand(region: &str) -> &str {
+        let start = region
+            .find(r#"<div class="flex size-11 items-center justify-center""#)
+            .expect("the brand box");
+        let end = start + region[start..].find("PaliCanon</span>").expect("wordmark");
+        &region[start..end + "PaliCanon</span>".len()]
+    }
+
+    /// Guards the SHAPE of the bar: one button, the one that opens
+    /// `#pc-menu`, 44 px, with the Menu icon, closed, named. A mutation
+    /// putting the lotus back in a `DisclosureButton` turns it red (two
+    /// buttons). Does not catch: a wrong icon path with the right name.
+    #[test]
+    fn the_phone_bar_has_one_button_and_it_is_the_menu_button() {
+        let html = render(None);
+        let bar = bar(&html);
+        let found = buttons(bar);
+        assert_eq!(found.len(), 1, "{bar}");
+        assert_eq!(bar.matches("<button").count(), 1, "{bar}");
+        let button = found[0];
+        for expected in [
+            r#"aria-controls="pc-menu""#,
+            r#"aria-expanded="false""#,
+            r#"aria-label="Open navigation""#,
+            "size-11",
+            "M3 12h18",
+        ] {
+            assert!(button.contains(expected), "{expected}: {button}");
+        }
+        assert!(!button.contains("<img"), "{button}");
+    }
+
+    /// The lotus is the brand on the phone: an image outside every button,
+    /// in the bar and in the open navigation's header. A mutation putting
+    /// the lotus back in a button turns it red. Does not catch: a lotus
+    /// wrapped in a link (see `the_brand_is_not_a_link`).
+    #[test]
+    fn the_lotus_is_not_inside_a_button_on_the_phone() {
+        let html = render(None);
+        for (name, region) in [("bar", bar(&html)), ("open header", open_header(&html))] {
+            assert_eq!(region.matches("<img").count(), 1, "{name}: {region}");
+            for button in buttons(region) {
+                assert!(!button.contains("<img"), "{name}: {button}");
+            }
+        }
+    }
+
+    /// The brand is no link either: the shell has no home URL.
+    #[test]
+    fn the_brand_is_not_a_link() {
+        let html = render(None);
+        assert!(!bar(&html).contains("<a"), "{}", bar(&html));
+        assert!(!open_header(&html).contains("<a"), "{}", open_header(&html));
+    }
+
+    /// The bar and the open navigation show the very same brand: the lotus
+    /// in a centred 44 px box (where the old button's image sat), then the
+    /// name.
+    #[test]
+    fn the_bar_and_the_open_header_show_the_same_brand() {
+        let html = render(None);
+        let in_bar = brand(bar(&html));
+        assert!(in_bar.contains("<img"), "{in_bar}");
+        assert!(in_bar.contains("/lotus.png"), "{in_bar}");
+        assert_eq!(in_bar, brand(open_header(&html)));
+    }
+
+    /// Exactly one control opens `#pc-menu`, and the rail keeps its own
+    /// lotus button. Mutation: the lotus back in a `DisclosureButton`
+    /// (two openers) turns it red.
+    #[test]
+    fn exactly_one_control_opens_the_phone_navigation() {
+        let html = render(None);
+        assert_eq!(
+            html.matches(r#"aria-controls="pc-menu""#).count(),
+            1,
+            "{html}"
+        );
+        let rail = rail(&html);
+        assert_eq!(
+            rail.matches(r#"aria-controls="pc-rail""#).count(),
+            1,
+            "{rail}"
+        );
+        let lotus_button = buttons(rail)
+            .into_iter()
+            .find(|button| button.contains(r#"aria-controls="pc-rail""#))
+            .expect("the rail's lotus button");
+        assert!(lotus_button.contains("<img"), "{lotus_button}");
+    }
+
+    /// The open navigation: the brand, then the existing close cross,
+    /// the only button of its header.
+    #[test]
+    fn the_open_header_keeps_its_close_cross_after_the_brand() {
+        let html = render(None);
+        let header = open_header(&html);
+        let found = buttons(header);
+        assert_eq!(found.len(), 1, "{header}");
+        let cross = found[0];
+        assert!(
+            cross.contains(r#"aria-label="Close navigation""#),
+            "{cross}"
+        );
+        assert!(cross.contains("m4 4 8 8M12 4l-8 8"), "{cross}");
+        assert!(!cross.contains("aria-controls"), "{cross}");
+        let img = header.find("<img").expect("lotus");
+        let name = header.find("PaliCanon</span>").expect("wordmark");
+        let at = header.find("<button").unwrap();
+        assert!(img < name && name < at, "{header}");
+        assert!(tag_with(header, "aria-label=\"Close navigation\"").contains("ml-auto"));
+    }
+
+    /// The brand's lotus sits in a centred 44 px box, `flex size-11
+    /// items-center justify-center`, around the image, in the bar and in
+    /// the open header. A mutation to `size-10` turns it red. Does not
+    /// catch: the pixel position (no layout engine in SSR).
+    #[test]
+    fn the_brand_lotus_box_is_a_centred_44_px_box() {
+        let html = render(None);
+        for (name, region) in [("bar", bar(&html)), ("open header", open_header(&html))] {
+            let markup = brand(region);
+            let img = markup.find("<img").expect("the lotus");
+            let boxed = &markup[..img];
+            assert!(
+                boxed.starts_with(r#"<div class="flex size-11 items-center justify-center">"#),
+                "{name}: {boxed}"
+            );
+            assert!(
+                boxed.ends_with(r#"justify-center">"#),
+                "{name}: the img is the box's direct child: {boxed}"
+            );
+        }
+    }
+
+    /// The shell rendered with the phone navigation open.
+    fn render_menu_open() -> String {
+        render_menu_open_cookies(None)
+    }
+
+    /// The shell rendered with the phone navigation open, for a request
+    /// carrying `cookies` (a whole `Cookie` header), if any.
+    fn render_menu_open_cookies(cookies: Option<&str>) -> String {
+        Owner::new().with(|| {
+            if let Some(cookies) = cookies {
+                let request = http::Request::builder()
+                    .header(http::header::COOKIE, cookies)
+                    .body(())
+                    .unwrap();
+                provide_context(request.into_parts().0);
+            }
+            let shell = view! {
+                <AppShell>
+                    <p>"page"</p>
+                </AppShell>
+            };
+            expect_context::<ShellState>().menu_open.set(true);
+            shell.to_html()
+        })
+    }
+
+    /// With the navigation open the bar's menu button says so: expanded and
+    /// named "Close navigation", still the only button of the bar. A
+    /// mutation of the open label turns it red.
+    #[test]
+    fn the_menu_button_of_an_open_navigation_is_expanded_and_says_close() {
+        let html = render_menu_open();
+        let bar = bar(&html);
+        let found = buttons(bar);
+        assert_eq!(found.len(), 1, "{bar}");
+        let button = found[0];
+        for expected in [
+            r#"aria-controls="pc-menu""#,
+            r#"aria-expanded="true""#,
+            r#"aria-label="Close navigation""#,
+        ] {
+            assert!(button.contains(expected), "{expected}: {button}");
+        }
+        assert!(!button.contains(r#"aria-expanded="false""#), "{button}");
+        assert!(!button.contains("Open navigation"), "{button}");
+    }
+
+    /// The menu's `hidden` attribute follows the state: absent with the
+    /// navigation open, present when a page loads. A mutation inverting the
+    /// condition turns it red.
+    #[test]
+    fn the_menu_has_no_hidden_attribute_only_when_open() {
+        let open = render_menu_open();
+        let tag = tag_with(&open, r#"id="pc-menu""#);
+        assert!(!tag.contains(" hidden"), "{tag}");
+        let closed = render(None);
+        let tag = tag_with(&closed, r#"id="pc-menu""#);
+        assert!(tag.contains(" hidden"), "{tag}");
+    }
+
+    /// Pair of the open-button test, in French: the open navigation's
+    /// menu button says "Fermer la navigation" and is expanded. A mutation
+    /// of the open label turns it red.
+    #[test]
+    fn the_open_menu_button_says_close_in_french() {
+        let html = render_menu_open_cookies(Some("pc_lang=fr"));
+        let bar = bar(&html);
+        let found = buttons(bar);
+        assert_eq!(found.len(), 1, "{bar}");
+        for expected in [
+            r#"aria-label="Fermer la navigation""#,
+            r#"aria-expanded="true""#,
+        ] {
+            assert!(found[0].contains(expected), "{expected}: {}", found[0]);
+        }
+        assert!(!found[0].contains("Ouvrir"), "{}", found[0]);
+    }
+
+    /// The right-hand group: the badge (min-w-0, max-w-[8rem], it truncates
+    /// first) then the menu button (`shrink-0`, never overlapped). A
+    /// mutation putting the badge after the button turns it red. Does not
+    /// catch: the visual overlap itself (no layout engine in SSR).
+    #[test]
+    fn the_env_badge_sits_before_the_menu_button_in_one_right_hand_group() {
+        let html = render_with_badge(None);
+        let bar = bar(&html);
+        let group = bar
+            .find(r#"<div class="ml-auto flex min-w-0 items-center gap-2""#)
+            .expect("the right-hand group");
+        let wrapper = bar
+            .find(r#"<div class="min-w-0 max-w-[8rem]""#)
+            .expect("the badge wrapper");
+        let button = bar.find("<button").expect("the menu button");
+        let badge = bar.find(r#"title="main · a1b2c3f""#).expect("the badge");
+        assert!(
+            group < wrapper && wrapper < badge && badge < button,
+            "{bar}"
+        );
+        assert_eq!(bar.matches("ml-auto").count(), 1, "{bar}");
+        let button_tag = &bar[button..button + bar[button..].find('>').unwrap()];
+        assert!(button_tag.contains("shrink-0"), "{bar}");
+        // The brand comes first, at the left.
+        assert!(bar.find("<img").unwrap() < group, "{bar}");
+    }
+
+    /// Without a badge the group holds the menu button alone, still pushed
+    /// to the right.
+    #[test]
+    fn without_a_badge_the_menu_button_is_alone_at_the_right() {
+        let html = render(None);
+        let bar = bar(&html);
+        let group = bar
+            .find(r#"<div class="ml-auto flex min-w-0 items-center gap-2""#)
+            .expect("the right-hand group");
+        assert!(bar[group..].contains("<button"), "{bar}");
+        assert!(!bar.contains("max-w-[8rem]"), "{bar}");
+    }
+
+    /// Pair of the bar test, in French: the menu button follows the
+    /// language and stays the only opener.
+    #[test]
+    fn the_menu_button_is_named_in_the_current_language() {
+        let html = render_cookies(Some("pc_lang=fr"));
+        let bar = bar(&html);
+        assert_eq!(buttons(bar).len(), 1, "{bar}");
+        assert!(
+            buttons(bar)[0].contains(r#"aria-label="Ouvrir la navigation""#),
+            "{bar}"
+        );
+        assert_eq!(
+            html.matches(r#"aria-controls="pc-menu""#).count(),
+            1,
+            "{html}"
+        );
+        assert!(
+            open_header(&html).contains(r#"aria-label="Fermer la navigation""#),
+            "{}",
+            open_header(&html)
+        );
+    }
+
+    /// The language row, a `NavList` entry and the Settings row of the phone
+    /// navigation share one row geometry: each tag carries the
+    /// `Variant::Nav` / `Size::Lg` string, so none can drift from the others
+    /// (070). Written after the code of lane C; red when
+    /// `mobile_language` goes back to `Size::Md` (mutation tried). It does
+    /// not measure pixels: the CDP check does.
+    #[test]
+    fn the_language_row_a_nav_entry_and_settings_share_one_row_size() {
+        use crate::button::classes;
+        use crate::{IconName, NavEntry, NavSection};
+        let html = Owner::new().with(|| {
+            let nav = NavList::new(
+                vec![NavSection {
+                    title: None,
+                    entries: vec![NavEntry {
+                        label: "Buttons",
+                        icon: IconName::Button,
+                        href: "/buttons",
+                    }],
+                }],
+                "/".to_string(),
+            );
+            view! {
+                <AppShell nav=nav>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        let menu = mobile(&html);
+        let shared = classes(Variant::Nav, Size::Lg, "");
+        for (name, needle) in [
+            ("the nav entry", r#"href="/buttons""#),
+            ("the language row", r#"aria-haspopup="true""#),
+            ("the Settings row", r#"aria-controls="pc-settings""#),
+        ] {
+            let tag = tag_with(menu, needle);
+            assert!(tag.contains(&shared), "{name}: {tag}");
+        }
     }
 }
