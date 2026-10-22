@@ -1,6 +1,6 @@
 //! The interface language: the one list of supported languages
 //! ([`Language`]), the one place that decides which one a request gets
-//! ([`resolve_language`]), and the one signal everything reads
+//! (`resolve_language`), and the one signal everything reads
 //! ([`language_signal`]), provided once at the app root
 //! ([`provide_language`]).
 //!
@@ -14,7 +14,7 @@
 //!
 //! **Where the first value comes from.** On the server, from the request:
 //! cookie `pc_lang`, else the `Accept-Language` header, else English
-//! ([`resolve_language`]); the server's shell also writes it into
+//! (`resolve_language`); the server's shell also writes it into
 //! `<html lang>`. In the browser, hydration starts from that `<html lang>`
 //! — the language the server rendered — and never re-resolves it from the
 //! cookie or a default, so the hydrated page cannot flash another language.
@@ -212,7 +212,7 @@ pub(crate) fn local_language() -> Language {
 }
 
 /// The first value of [`language_signal`]: the request's
-/// ([`resolve_language`]) on the server; in the browser, [`local_language`]
+/// (`resolve_language`) on the server; in the browser, [`local_language`]
 /// under [`Store::Local`](crate::store::Store::Local), else `<html lang>` (the language the server
 /// rendered); English when none exists (a plain test).
 fn initial_language() -> Language {
