@@ -1,6 +1,6 @@
 # 071 EnvBadge takes owned strings; an empty sha drops the separator
 
-status: building · rank: 2 · level: simple · type: feat · request: learn-pali 060 (the badge becomes a deploy-time value read at runtime, so the props can no longer be `&'static str`) · light path
+status: merged · rank: 2 · level: simple · type: feat · request: learn-pali 060 (the badge becomes a deploy-time value read at runtime, so the props can no longer be `&'static str`) · light path
 
 ## Summary
 Rank: difficulty 2 (two props, one format rule, tests, gallery), impact 2 (every service's footer; additive) → 2.
@@ -10,3 +10,7 @@ Rank: difficulty 2 (two props, one format rule, tests, gallery), impact 2 (every
 | Step | Result | Output |
 | --- | --- | --- |
 | Check | done | orchestrator: diff read (label helper, #[prop(into)] String props, separator only with a sha); CI matrix: clippy ssr 0 (lane), hydrate 0, csr 0 (orchestrator); a visible change only in the gallery, opened in ui-lab after the release |
+| Merge | done | 52ed069 on main; tag v0.3.2 |
+
+## Retro
+One line (light path): a lane running only the ssr clippy misses the wasm matrix; the brief now quotes the CI matrix, the orchestrator ran hydrate and csr.
