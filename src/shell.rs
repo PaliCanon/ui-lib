@@ -1153,9 +1153,8 @@ mod tests {
     #[test]
     fn the_mobile_menu_is_hidden_when_a_page_loads() {
         let html = render(Some("true"));
-        let menu = &html[html.find(r#"id="pc-menu""#).expect("menu")..];
-        let tag_end = menu.find('>').unwrap();
-        assert!(menu[..tag_end].contains("hidden"), "{}", &menu[..tag_end]);
+        let tag = tag_with(&html, r#"id="pc-menu""#);
+        assert!(tag.contains(" hidden"), "{tag}");
     }
 
     #[test]
