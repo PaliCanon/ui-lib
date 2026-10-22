@@ -1,6 +1,6 @@
 # 070 The phone shell: a menu button, popup dialogs, aligned rows
 
-status: planned · rank: 3 · level: standard · type: feat · session: ui-lib-070-phone-shell · request: the user, 2026-10-22 (phone check of learn.palicanon.app)
+status: merged · rank: 3 · level: standard · type: feat · session: ui-lib-070-phone-shell · request: the user, 2026-10-22 (phone check of learn.palicanon.app)
 
 ## Summary
 Rank: difficulty 3 (three small shell items, one new Dialog prop, render tests, gallery), impact 3 (every service's phone shell) → 3.
@@ -90,3 +90,4 @@ Baseline: 455 lib tests + 11 in tests/cfg_gates.rs + 1 doctest (`cargo test --lo
 | C `src/menu.rs`, `src/language_menu.rs` | the C tests | row `size` on `item_row`, `BackRow`, `leaf_item`; `mobile_language` passes Lg | |
 | Measure | done | orchestrator, CDP 390x844 on the gallery at :3070 (wt/070/ui-lab against this worktree): every phone navigation row x 12, h 52, icon x 28, text x 62 (7 entries, English, Settings); the menu button 44x44 at x 338; the lotus img not inside a button; one header button; scrollWidth == innerWidth 390/390; captures phone/070-bar.png, 070-nav-open.png. Follow-up for the ui-lab step: the gallery home text still says the lotus opens the navigation on a phone |
 | Check | done | the user, 2026-10-22, on the gallery at :3070 and the captures: «ça m'a l'air bien pour le menu» (branch tip 79f8da0, lane worktrees untouched) |
+| Merge | done | 067e0bb on main (squash); tag v0.4.0 at the release commit (Cargo.toml and Cargo.lock bumped) |
