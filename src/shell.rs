@@ -25,7 +25,8 @@
 //! navigation closes it.
 //!
 //! **Language** sits just above Settings, at the bottom of the rail and of
-//! the full-screen navigation: the globe and the current language's own
+//! the full-screen navigation (unless `language_in_settings` moves it into
+//! the Settings dialog, a Language section after Appearance): the globe and the current language's own
 //! name. On desktop it opens a menu of the languages (English · Français ·
 //! Tiếng Việt), its own disclosure `pc-language`; on mobile its row drills
 //! down to the same choices. Choosing one sets
@@ -60,12 +61,15 @@
 use leptos::prelude::*;
 use leptos_i18n::td_string;
 
-use crate::button::{Button, Disclosed, Disclosure, DisclosureButton, Size, Variant};
+use crate::button::{
+    Button, Disclosed, Disclosure, DisclosureButton, Segmented, SegmentedOption, Size, Variant,
+    classes,
+};
 use crate::catalogue::strings;
-use crate::dialog::{Dialog, DialogSection};
+use crate::dialog::{Dialog, DialogSection, DialogSize};
 use crate::env_badge::{EnvBadge, EnvBadgeInfo};
 use crate::icon::{Icon, IconName};
-use crate::language::{Language, provide_language};
+use crate::language::{Language, language_signal, provide_language};
 use crate::language_menu::{LanguageMenu, MobileLanguage, RailLanguageEntry};
 use crate::menu::Path;
 use crate::nav::{MobileSections, NavList, RailSections};
@@ -89,6 +93,9 @@ pub struct ShellState {
     pub settings_open: RwSignal<bool>,
     /// The desktop language menu is open (never remembered).
     pub language_open: RwSignal<bool>,
+    /// The sign-out confirmation is open (never remembered), when the app
+    /// gave `sign_out`.
+    pub sign_out_open: RwSignal<bool>,
     /// The reading theme (remembered in the `pc_theme` cookie).
     pub theme: RwSignal<Theme>,
     /// The interface language: the page's one signal
@@ -100,6 +107,16 @@ pub struct ShellState {
     /// navigation through the shell (lotus, ✕, an entry, Escape) can reset
     /// it.
     pub(crate) language_path: Path,
+}
+
+/// The shell's opt-in layout choices, provided as context to the rail's
+/// bottom, the phone menu's bottom and the Settings dialog.
+#[derive(Clone, Copy, Debug, Default)]
+struct ShellOptions {
+    /// The language choice lives in the Settings dialog, not in the rail.
+    language_in_settings: bool,
+    /// The path a sign-out entry POSTs to, under Settings.
+    sign_out: Option<&'static str>,
 }
 
 /// The lotus, the content of the rail's button and half of the phone's
@@ -155,16 +172,31 @@ pub fn AppShell(
     /// default.
     #[prop(optional, into)]
     footer: Option<ViewFn>,
+    /// The language choice in the Settings dialog (a Language section after
+    /// Appearance) instead of its own entry at the rail's bottom and row in
+    /// the phone menu; off by default.
+    #[prop(optional)]
+    language_in_settings: bool,
+    /// A sign-out entry under Settings, at the rail's bottom and in the phone
+    /// menu: a form POSTing to this path (the app's own route, which checks
+    /// the request's Origin); none by default.
+    #[prop(optional)]
+    sign_out: Option<&'static str>,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
     let state = shell_state();
     provide_context(state);
+    provide_context(ShellOptions {
+        language_in_settings,
+        sign_out,
+    });
     close_on_escape(state);
     apply_theme(state.theme);
     apply_language(state.language);
     view! {
         <SettingsDialog settings=settings settings_extra=settings_extra />
+        {sign_out.map(|action| view! { <SignOutDialog action=action /> })}
         // One column at least a screen tall: the top bar (phone), then the
         // row — the rail first, the full height of the page; beside it the
         // page column, its footer at the bottom. A short page is one screen,
@@ -190,6 +222,7 @@ fn shell_state() -> ShellState {
         menu_open: RwSignal::new(false),
         settings_open: RwSignal::new(false),
         language_open: RwSignal::new(false),
+        sign_out_open: RwSignal::new(false),
         theme: theme::theme_signal(),
         language: provide_language(),
         language_path: RwSignal::new(Vec::new()),
@@ -212,6 +245,9 @@ fn SettingsDialog(settings: Option<ViewFn>, settings_extra: Option<ViewFn>) -> i
     let controls = Disclosed::new("pc-settings", state.settings_open);
     let t = strings();
     let title = Signal::derive(move || td_string!(t.locale(), settings).to_owned());
+    let language_in_settings = use_context::<ShellOptions>()
+        .unwrap_or_default()
+        .language_in_settings;
     view! {
         <Dialog controls=controls title=title>
             {match settings {
@@ -221,6 +257,17 @@ fn SettingsDialog(settings: Option<ViewFn>, settings_extra: Option<ViewFn>) -> i
                         <DialogSection title=td_string!(t.locale(), appearance)>
                             <ThemePicker />
                         </DialogSection>
+                        {language_in_settings
+                            .then(|| {
+                                view! {
+                                    <DialogSection title=td_string!(t.locale(), language)>
+                                        // Centred, as the theme cards above it.
+                                        <div class="flex justify-center">
+                                            <LanguagePicker />
+                                        </div>
+                                    </DialogSection>
+                                }
+                            })}
                         {settings_extra.map(|extra| extra.run())}
                     }
                         .into_any()
@@ -260,7 +307,11 @@ fn close_on_escape(state: ShellState) {
 /// theirs then find nothing left to close.
 #[cfg(any(feature = "browser", test))]
 fn escape(state: ShellState) {
-    for open in [state.language_open, state.settings_open] {
+    for open in [
+        state.language_open,
+        state.settings_open,
+        state.sign_out_open,
+    ] {
         if open.get_untracked() {
             open.set(false);
             return;
@@ -437,10 +488,16 @@ fn RailBottom(
         ..
     } = expect_context::<ShellState>();
     let settings = Disclosed::new("pc-settings", settings_open);
+    let options = use_context::<ShellOptions>().unwrap_or_default();
     view! {
         <div class="mt-auto flex flex-col gap-1 p-3.5">
-            <RailLanguageEntry controls=language_menu current=language shown=shown />
-            <RailSettingsEntry settings=settings shown=shown />
+            {(!options.language_in_settings)
+                .then(|| {
+                    view! {
+                        <RailLanguageEntry controls=language_menu current=language shown=shown />
+                    }
+                })} <RailSettingsEntry settings=settings shown=shown />
+            {options.sign_out.map(|_| view! { <RailSignOut shown=shown /> })}
             {env_badge
                 .map(|info| {
                     view! {
@@ -572,11 +629,124 @@ fn MobileBottom() -> impl IntoView {
         ..
     } = expect_context::<ShellState>();
     let settings = Disclosed::new("pc-settings", settings_open);
+    let options = use_context::<ShellOptions>().unwrap_or_default();
     view! {
         <div class="mt-auto flex flex-col gap-1 border-t border-line p-3">
-            <MobileLanguage current=language path=language_path />
+            {(!options.language_in_settings)
+                .then(|| view! { <MobileLanguage current=language path=language_path /> })}
             <MobileSettings settings=settings />
+            {options.sign_out.map(|_| view! { <MobileSignOut /> })}
         </div>
+    }
+}
+
+/// The sign-out entry under Settings at the rail's bottom: it opens the
+/// confirmation ([`SignOutDialog`]), never signs out at once; the door icon
+/// and the label fade like the entries above it while the rail is collapsed;
+/// rebuilt when the language changes.
+#[component]
+fn RailSignOut(#[prop(into)] shown: Signal<bool>) -> impl IntoView {
+    let state = expect_context::<ShellState>();
+    let confirm = Disclosed::new("pc-sign-out", state.sign_out_open);
+    let t = strings();
+    move || {
+        let label = td_string!(t.locale(), sign_out);
+        view! {
+            <DisclosureButton
+                controls=confirm
+                variant=Variant::Nav
+                label_closed=label
+                label_open=label
+            >
+                <Icon name=IconName::SignOut />
+                <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                    {label}
+                </span>
+            </DisclosureButton>
+        }
+    }
+}
+
+/// The sign-out row of the full-screen navigation, under Settings: opens the
+/// same confirmation as the rail's entry.
+#[component]
+fn MobileSignOut() -> impl IntoView {
+    let state = expect_context::<ShellState>();
+    let confirm = Disclosed::new("pc-sign-out", state.sign_out_open);
+    let t = strings();
+    move || {
+        let label = td_string!(t.locale(), sign_out);
+        view! {
+            <DisclosureButton
+                controls=confirm
+                variant=Variant::Nav
+                size=Size::Lg
+                label_closed=label
+                label_open=label
+            >
+                <Icon name=IconName::SignOut />
+                <span>{label}</span>
+            </DisclosureButton>
+        }
+    }
+}
+
+/// The sign-out confirmation (the user, 2026-10-22: "sign out devrait avoir
+/// un pop up de confirmation"): a small centred card asking, Cancel closing
+/// it, and the POST form to the app's `action` — the only thing that signs
+/// out. Built once, with the shell, as the Settings dialog is.
+#[component]
+fn SignOutDialog(action: &'static str) -> impl IntoView {
+    let state = expect_context::<ShellState>();
+    let open = state.sign_out_open;
+    let controls = Disclosed::new("pc-sign-out", open);
+    let t = strings();
+    let title = Signal::derive(move || td_string!(t.locale(), sign_out_title).to_owned());
+    let footer = move || {
+        view! {
+            <div class="flex justify-end gap-2">
+                <Button variant=Variant::Ghost on_click=move |_| open.set(false)>
+                    {move || td_string!(t.locale(), cancel)}
+                </Button>
+                <form method="post" action=action class="contents">
+                    <button type="submit" class=classes(Variant::Primary, Size::default(), "")>
+                        {move || td_string!(t.locale(), sign_out)}
+                    </button>
+                </form>
+            </div>
+        }
+    };
+    view! {
+        <Dialog controls=controls title=title size=DialogSize::Popup footer=footer>
+            <p class="text-sm text-muted">{move || td_string!(t.locale(), sign_out_body)}</p>
+        </Dialog>
+    }
+}
+
+/// The Settings dialog's Language section (`language_in_settings`): one
+/// choice per [`Language`], each in its own name, bound to the page's one
+/// language signal — choosing applies at once and is remembered in
+/// `pc_lang`, as the rail's language menu does.
+#[component]
+pub fn LanguagePicker() -> impl IntoView {
+    let language = language_signal();
+    let t = strings();
+    move || {
+        let options = Language::ALL
+            .into_iter()
+            .map(|value| SegmentedOption {
+                label: value.name(),
+                value,
+            })
+            .collect::<Vec<_>>();
+        view! {
+            <Segmented
+                aria_label=td_string!(t.locale(), language)
+                options=options
+                value=Signal::derive(move || language.get())
+                on_change=Callback::new(move |value| language.set(value))
+            />
+        }
     }
 }
 
@@ -1562,6 +1732,93 @@ mod tests {
             settle().await;
             assert_eq!(fake::moves().focus_into, ["pc-settings"]);
         });
+    }
+
+    /// The shell with the two opt-in choices of the rail's bottom.
+    fn render_opted(language_in_settings: bool, sign_out: Option<&'static str>) -> String {
+        Owner::new().with(|| match sign_out {
+            Some(action) => view! {
+                <AppShell language_in_settings=language_in_settings sign_out=action>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html(),
+            None => view! {
+                <AppShell language_in_settings=language_in_settings>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html(),
+        })
+    }
+
+    /// `sign_out`: an entry under Settings, in the rail and in the phone
+    /// menu, that OPENS a confirmation; the one POST form to the app's path is
+    /// in that confirmation, beside Cancel. Nothing of it without the prop.
+    #[test]
+    fn sign_out_opens_a_confirmation_holding_the_one_post_form() {
+        let html = render_opted(false, Some("/sign-out"));
+        let form = r#"<form method="post" action="/sign-out" class="contents">"#;
+        assert_eq!(html.matches(form).count(), 1, "one form, in the dialog");
+        let dialog = &html[html.find(r#"id="pc-sign-out""#).expect("the confirmation")..];
+        assert!(dialog.contains(form), "the form is the dialog's");
+        assert!(dialog.contains("Cancel") && dialog.contains("Sign out?"));
+        let rail = &html[html.find(r#"id="pc-rail""#).expect("the rail")..];
+        let gear = rail
+            .find(r#"aria-controls="pc-settings""#)
+            .expect("the gear");
+        let door = rail
+            .find(r#"aria-controls="pc-sign-out""#)
+            .expect("the rail's sign-out");
+        assert!(gear < door, "sign-out comes under Settings");
+        assert_eq!(
+            html.matches(r#"aria-controls="pc-sign-out""#).count(),
+            2,
+            "rail and menu"
+        );
+        let plain = render(None);
+        assert!(
+            !plain.contains("pc-sign-out") && !plain.contains(r#"action="/sign-out""#),
+            "opt-in only"
+        );
+    }
+
+    /// Escape closes the sign-out confirmation first, the rail staying open.
+    #[test]
+    fn escape_closes_the_sign_out_confirmation_only() {
+        Owner::new().with(|| {
+            let state = open_shell(false);
+            state.sign_out_open.set(true);
+            escape(state);
+            assert!(!state.sign_out_open.get_untracked());
+            assert!(state.rail_open.get_untracked(), "the rail stays open");
+        });
+    }
+
+    /// `language_in_settings`: no globe entry in the rail nor row in the
+    /// phone menu; a Language section after Appearance in the dialog, one
+    /// choice per language in its own name. Without it, unchanged.
+    #[test]
+    fn language_in_settings_moves_the_choice_into_the_dialog() {
+        let moved = render_opted(true, None);
+        assert!(
+            !moved.contains(r#"aria-controls="pc-language""#),
+            "no rail entry: {moved}"
+        );
+        let appearance = moved.find("Appearance").expect("Appearance");
+        let section = moved
+            .find(r#"role="radiogroup" aria-label="Language""#)
+            .expect("the section");
+        assert!(appearance < section, "Language comes after Appearance");
+        for name in ["English", "Français", "Tiếng Việt"] {
+            assert!(moved[section..].contains(name), "{name}");
+        }
+        let default = render(None);
+        assert!(
+            default.contains(r#"aria-controls="pc-language""#),
+            "the default keeps the rail entry"
+        );
+        assert!(!default.contains(r#"role="radiogroup" aria-label="Language""#));
     }
 
     #[test]

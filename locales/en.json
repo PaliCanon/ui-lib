@@ -1,6 +1,7 @@
 {
   "appearance": "Appearance",
   "back": "Back",
+  "cancel": "Cancel",
   "carousel_next": "Next",
   "carousel_previous": "Previous",
   "carousel_slide": "{{ n }} of {{ total }}",
@@ -12,6 +13,9 @@
   "light": "Light",
   "open_navigation": "Open navigation",
   "settings": "Settings",
+  "sign_out": "Sign out",
+  "sign_out_body": "You will need to sign in again to come back.",
+  "sign_out_title": "Sign out?",
   "system": "System",
   "theme": "Theme"
 }

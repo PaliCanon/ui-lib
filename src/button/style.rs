@@ -82,7 +82,8 @@ fn variant_classes(variant: Variant) -> &'static str {
         Variant::Chip => {
             "gap-2 justify-center rounded-full border border-line bg-chip text-muted hover:border-gold/60 hover:text-heading \
              active:bg-chip-hover aria-expanded:border-gold aria-expanded:bg-gold/10 \
-             aria-expanded:text-heading aria-pressed:border-gold aria-pressed:bg-gold/10 aria-pressed:text-heading"
+             aria-expanded:text-heading aria-pressed:border-gold aria-pressed:bg-gold/10 aria-pressed:text-heading \
+             aria-checked:border-gold aria-checked:bg-gold/10 aria-checked:text-heading"
         }
         Variant::Primary => {
             "gap-2 justify-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:brightness-95"

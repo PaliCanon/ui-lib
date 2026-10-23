@@ -145,7 +145,7 @@ pub use presence::Presence;
 pub use reveal_card::RevealCard;
 pub use search::{SearchCard, SearchRow};
 pub use session_header::SessionHeader;
-pub use shell::{AppShell, ShellState};
+pub use shell::{AppShell, LanguagePicker, ShellState};
 pub use slider::Slider;
 pub use store::{Store, StoreError};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};

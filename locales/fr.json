@@ -1,6 +1,7 @@
 {
   "appearance": "Apparence",
   "back": "Retour",
+  "cancel": "Annuler",
   "carousel_next": "Suivant",
   "carousel_previous": "Précédent",
   "carousel_slide": "{{ n }} sur {{ total }}",
@@ -12,6 +13,9 @@
   "light": "Clair",
   "open_navigation": "Ouvrir la navigation",
   "settings": "Paramètres",
+  "sign_out": "Se déconnecter",
+  "sign_out_body": "Il faudra vous reconnecter pour revenir.",
+  "sign_out_title": "Se déconnecter ?",
   "system": "Système",
   "theme": "Thème"
 }

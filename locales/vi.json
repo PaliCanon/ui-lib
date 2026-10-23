@@ -1,6 +1,7 @@
 {
   "appearance": "Giao diện",
   "back": "Quay lại",
+  "cancel": "Hủy",
   "carousel_next": "Tiếp",
   "carousel_previous": "Trước",
   "carousel_slide": "{{ n }} trên {{ total }}",
@@ -12,6 +13,9 @@
   "light": "Sáng",
   "open_navigation": "Mở thanh điều hướng",
   "settings": "Cài đặt",
+  "sign_out": "Đăng xuất",
+  "sign_out_body": "Bạn sẽ cần đăng nhập lại để quay lại.",
+  "sign_out_title": "Đăng xuất?",
   "system": "Hệ thống",
   "theme": "Chủ đề"
 }

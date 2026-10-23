@@ -62,6 +62,21 @@ where
 mod tests {
     use super::*;
 
+    /// The chosen option is SEEN, not only announced: a chip marks
+    /// `aria-checked` as it marks `aria-pressed` (075: the Settings
+    /// dialog's Language choice showed no language selected).
+    #[test]
+    fn a_checked_chip_is_drawn_as_chosen() {
+        let chip = crate::button::classes(Variant::Chip, Size::Sm, "");
+        for class in [
+            "aria-checked:border-gold",
+            "aria-checked:bg-gold/10",
+            "aria-checked:text-heading",
+        ] {
+            assert!(chip.contains(class), "{class} missing: {chip}");
+        }
+    }
+
     fn options() -> Vec<SegmentedOption<u8>> {
         vec![
             SegmentedOption {

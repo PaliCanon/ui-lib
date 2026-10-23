@@ -47,6 +47,9 @@ pub enum IconName {
     Search,
     /// A plus: what adds (learn-pali's + that adds terms).
     Plus,
+    /// A door with an arrow leaving it: the shell's sign-out entry, under
+    /// Settings at the bottom of the rail.
+    SignOut,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -69,6 +72,13 @@ fn paths(name: IconName) -> &'static [&'static str] {
         ],
         IconName::Close => &["M4 4l16 16", "M20 4L4 20"],
         IconName::Plus => &["M12 5v14", "M5 12h14"],
+        IconName::SignOut => &[
+            // The door frame, open on the right.
+            "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4",
+            // The arrow, leaving through it.
+            "M16 17l5-5-5-5",
+            "M21 12H9",
+        ],
         IconName::Dialog => &[
             // The window frame.
             "M3 4h18a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z",
@@ -207,6 +217,7 @@ mod tests {
             IconName::Motion,
             IconName::Search,
             IconName::Plus,
+            IconName::SignOut,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }
