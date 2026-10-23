@@ -50,6 +50,9 @@ pub enum IconName {
     /// A door with an arrow leaving it: the shell's sign-out entry, under
     /// Settings at the bottom of the rail.
     SignOut,
+    /// Two people, one behind the other: a team, a workspace's members
+    /// (anatta-studio's Workspace entry, where ☰ read as "open the menu").
+    Users,
 }
 
 /// The drawing of `name`, on a 24 × 24 grid, as SVG path data.
@@ -78,6 +81,14 @@ fn paths(name: IconName) -> &'static [&'static str] {
             // The arrow, leaving through it.
             "M16 17l5-5-5-5",
             "M21 12H9",
+        ],
+        IconName::Users => &[
+            // The person in front: shoulders, then head.
+            "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2",
+            "M9 3a4 4 0 1 0 0 8 4 4 0 0 0 0-8z",
+            // The one behind: a shoulder, and the edge of a head.
+            "M22 21v-2a4 4 0 0 0-3-3.87",
+            "M16 3.13a4 4 0 0 1 0 7.75",
         ],
         IconName::Dialog => &[
             // The window frame.
@@ -218,6 +229,7 @@ mod tests {
             IconName::Search,
             IconName::Plus,
             IconName::SignOut,
+            IconName::Users,
         ] {
             assert!(!paths(name).is_empty(), "{name:?}");
         }
