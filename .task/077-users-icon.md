@@ -1,6 +1,6 @@
 # 077 A Users icon — a team, a workspace's members
 
-status: built — awaiting merge and release v0.4.4 · rank: 1 · level: simple · type: feat · request: the user, 2026-10-23 (anatta-studio's rail) · light path
+status: merged · rank: 1 · level: simple · type: feat · request: the user, 2026-10-23 (anatta-studio's rail) · light path
 
 ## Summary
 anatta-studio's rail drew its Workspace entry with `IconName::Menu` (☰), for want of a better icon; with the rail closed, the user read it
@@ -13,3 +13,9 @@ service changes until it opts in; IconName is not matched exhaustively anywhere 
 | Step | Result |
 | --- | --- |
 | Build | IconName::Users, its paths, the every-icon test; v0.4.4 |
+
+## Retro
+Light path: one additive icon, asked for by the user after the rail read ☰ as a menu. Nothing to change in the process.
+
+## Merge
+b1b3df5, released v0.4.4
