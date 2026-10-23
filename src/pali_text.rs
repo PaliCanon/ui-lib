@@ -144,17 +144,27 @@ enum Segment {
 
 /// The passage's segments: each word with entries (looked up lower-cased),
 /// everything else merged into plain runs.
-fn segments(tokens: &[Token], entries: &HashMap<String, Vec<WordEntry>>) -> Vec<Segment> {
+fn segments(
+    tokens: &[Token],
+    entries: &HashMap<String, Vec<WordEntry>>,
+    every_word: bool,
+) -> Vec<Segment> {
     let mut out: Vec<Segment> = Vec::new();
     for token in tokens {
-        let (text, found) = match token {
-            Token::Word(form) => (form, entries.get(&form.to_lowercase())),
-            Token::Other(text) => (text, None),
+        let (text, found, is_word) = match token {
+            Token::Word(form) => (form, entries.get(&form.to_lowercase()), true),
+            Token::Other(text) => (text, None, false),
         };
-        match (found.filter(|list| !list.is_empty()), out.last_mut()) {
+        let found = found.filter(|list| !list.is_empty());
+        let found = found.map(Vec::as_slice).or(if every_word && is_word {
+            Some(&[][..])
+        } else {
+            None
+        });
+        match (found, out.last_mut()) {
             (Some(list), _) => out.push(Segment::Word {
                 form: text.clone(),
-                entries: list.clone(),
+                entries: list.to_vec(),
             }),
             (None, Some(Segment::Plain(plain))) => plain.push_str(text),
             (None, _) => out.push(Segment::Plain(text.clone())),
@@ -323,6 +333,12 @@ struct Ctx {
     size: PaliSize,
     more_label: Option<Callback<usize, String>>,
     entry_action: Option<EntryAction>,
+    /// With a lookup every word is a button; opening one with no entry
+    /// yet calls it with the form, so the caller can fetch and update the
+    /// `entries` signal (learn-pali 065).
+    lookup: Option<Callback<String>>,
+    /// What the panel of a word with no entry says (looking up, or none).
+    empty_label: Option<Signal<String>>,
 }
 
 /// A Pāli passage whose words open their meaning: each word with entries
@@ -375,11 +391,31 @@ pub fn PaliText(
     /// Layout classes only (margin, width, position), never colours.
     #[prop(optional, into)]
     layout: String,
+    /// Makes every word a button, entries or not: opening a word that has
+    /// none calls this with the form as written, once per opening; the
+    /// caller looks it up and puts the entries into the `entries` signal,
+    /// and the open panel shows them. Absent by default: a word with no
+    /// entry then stays plain text.
+    #[prop(optional)]
+    lookup: Option<Callback<String>>,
+    /// The line the panel of a word with no entry shows (`Looking up…`,
+    /// then `No entry` once the caller knows), read live; only with
+    /// `lookup`. Absent: an empty panel.
+    #[prop(optional, into)]
+    empty_label: Option<Signal<String>>,
 ) -> impl IntoView {
     passage(
         &text,
         entries,
-        new_ctx(id, size, more_label, entry_action, None),
+        new_ctx(
+            id,
+            size,
+            more_label,
+            entry_action,
+            None,
+            lookup,
+            empty_label,
+        ),
         layout,
     )
 }
@@ -393,6 +429,8 @@ fn new_ctx(
     more_label: Option<Callback<usize, String>>,
     entry_action: Option<EntryAction>,
     open: Option<usize>,
+    lookup: Option<Callback<String>>,
+    empty_label: Option<Signal<String>>,
 ) -> Ctx {
     Ctx {
         open: OpenWord {
@@ -402,6 +440,8 @@ fn new_ctx(
         size,
         more_label,
         entry_action,
+        lookup,
+        empty_label,
     }
 }
 
@@ -417,7 +457,7 @@ fn passage(
         <span class=layout>
             {move || {
                 entries
-                    .with(|map| segments(&tokens, map))
+                    .with(|map| segments(&tokens, map, ctx.lookup.is_some()))
                     .into_iter()
                     .enumerate()
                     .map(|(index, segment)| segment_view(index, segment, ctx))
@@ -445,6 +485,17 @@ fn WordButton(index: usize, form: String, entries: Vec<WordEntry>, ctx: Ctx) -> 
     let is_open = move || open.current() == Some(index);
     let panel_form = form.clone();
     let word: NodeRef<leptos::html::Button> = NodeRef::new();
+    let empty = entries.is_empty();
+    let asked = form.clone();
+    let on_press = move |_| {
+        open.press(index);
+        if empty
+            && open.current() == Some(index)
+            && let Some(lookup) = ctx.lookup
+        {
+            lookup.run(asked.clone());
+        }
+    };
     view! {
         <span>
             <Pali size=ctx.size>
@@ -454,7 +505,7 @@ fn WordButton(index: usize, form: String, entries: Vec<WordEntry>, ctx: Ctx) -> 
                     class=WORD
                     aria-controls=open.id
                     aria-expanded=move || is_open().to_string()
-                    on:click=move |_| open.press(index)
+                    on:click=on_press
                 >
                     {form}
                 </button>
@@ -506,12 +557,7 @@ fn WordPanel(
                         <CloseButton open=open />
                     </span>
                 </div>
-                <ul class="mt-1 space-y-2">
-                    {list
-                        .into_iter()
-                        .map(|entry| entry_view(entry, action.map(|run| (run, pressed.clone()))))
-                        .collect_view()}
-                </ul>
+                <ul class="mt-1 space-y-2">{panel_items(list, action, &pressed, ctx.empty_label)}</ul>
                 {(more > 0)
                     .then(|| {
                         view! {
@@ -525,6 +571,34 @@ fn WordPanel(
 
 /// The `sm` breakpoint (40rem), in CSS pixels: from it on, the panel is
 /// the desktop popover rather than the sheet.
+/// The panel's rows: one per entry; with none and a label (a lookup in
+/// flight, or nothing found), one muted row saying it. A plain list, so a
+/// panel without the label keeps the markup it always had.
+fn panel_items(
+    list: Vec<WordEntry>,
+    action: Option<EntryAction>,
+    pressed: &str,
+    empty_label: Option<Signal<String>>,
+) -> Vec<AnyView> {
+    let mut items: Vec<AnyView> = list
+        .into_iter()
+        .map(|entry| entry_view(entry, action.map(|run| (run, pressed.to_string()))).into_any())
+        .collect();
+    if items.is_empty()
+        && let Some(label) = empty_label
+    {
+        items.push(
+            view! {
+                <li class="text-muted" data-empty-entry="">
+                    {move || label.get()}
+                </li>
+            }
+            .into_any(),
+        );
+    }
+    items
+}
+
 #[cfg(feature = "browser")]
 const SM_PX: f64 = 640.0;
 
@@ -758,7 +832,7 @@ mod tests {
 
     #[test]
     fn words_without_entries_merge_into_plain_text() {
-        let got = segments(&words("alaṃ, vakkali, kiṃ"), &map(&["vakkali"]));
+        let got = segments(&words("alaṃ, vakkali, kiṃ"), &map(&["vakkali"]), false);
         assert_eq!(
             got,
             vec![
@@ -774,7 +848,7 @@ mod tests {
 
     #[test]
     fn a_word_is_looked_up_lower_cased_and_shown_as_written() {
-        let got = segments(&words("Alaṃ"), &map(&["alaṃ"]));
+        let got = segments(&words("Alaṃ"), &map(&["alaṃ"]), false);
         assert_eq!(
             got,
             vec![Segment::Word {
@@ -789,7 +863,7 @@ mod tests {
         let mut entries = map(&[]);
         entries.insert("te".to_owned(), Vec::new());
         assert_eq!(
-            segments(&words("te"), &entries),
+            segments(&words("te"), &entries, false),
             vec![Segment::Plain("te".to_owned())]
         );
     }
@@ -999,9 +1073,117 @@ mod render_tests {
                 size: PaliSize::Body,
                 more_label,
                 entry_action,
+                lookup: None,
+                empty_label: None,
             };
             passage(LINE, Signal::stored(vakkali_map()), ctx, "mt-2".to_owned()).to_html()
         })
+    }
+
+    fn rendered_lookup(open: Option<usize>, lookup: Callback<String>, label: &str) -> String {
+        let label = label.to_string();
+        Owner::new().with(|| {
+            let ctx = Ctx {
+                open: OpenWord {
+                    id: "pt-panel",
+                    word: RwSignal::new(open),
+                },
+                size: PaliSize::Body,
+                more_label: None,
+                entry_action: None,
+                lookup: Some(lookup),
+                empty_label: Some(Signal::derive(move || label.clone())),
+            };
+            passage(LINE, Signal::stored(vakkali_map()), ctx, String::new()).to_html()
+        })
+    }
+
+    /// With a lookup every word is a button, entries or not (065): the
+    /// line's four words, not only the two the map knows.
+    #[test]
+    fn with_a_lookup_every_word_is_a_button() {
+        let html = rendered_lookup(None, Callback::new(|_| {}), "Looking up");
+        assert_eq!(buttons(&html).len(), 4, "{html}");
+        assert!(html.contains(">kiṃ<"), "{html}");
+        assert!(html.contains(">te<"), "{html}");
+        let plain = rendered(None, None);
+        assert_eq!(
+            buttons(&plain).len(),
+            2,
+            "without a lookup, as before: {plain}"
+        );
+    }
+
+    /// The panel of a word with no entry says the label; a word with
+    /// entries shows them and no label.
+    #[test]
+    fn an_empty_word_panel_says_the_label() {
+        // The segments of LINE with every word a button: punctuation and
+        // spaces sit between them, so kiṃ's index is found, not assumed.
+        let kim = segments(&words(LINE), &vakkali_map(), true)
+            .iter()
+            .position(|s| matches!(s, Segment::Word { form, .. } if form == "kiṃ"))
+            .unwrap();
+        let html =
+            rendered_lookup(Some(kim), Callback::new(|_| {}), "Looking up").replace("<!>", "");
+        assert!(html.contains("data-empty-entry"), "{html}");
+        assert!(html.contains(">Looking up</li>"), "{html}");
+        let html = rendered_lookup(Some(0), Callback::new(|_| {}), "Looking up");
+        assert!(
+            !html.contains("data-empty-entry"),
+            "entries: no label: {html}"
+        );
+    }
+
+    /// The lookup runs when an empty word opens, with the form as written;
+    /// never for a word that has entries.
+    #[test]
+    fn opening_an_empty_word_asks_the_lookup_once() {
+        Owner::new().with(|| {
+            let asked = RwSignal::new(Vec::<String>::new());
+            let lookup = Callback::new(move |form: String| asked.update(|v| v.push(form)));
+            let ctx = Ctx {
+                open: OpenWord {
+                    id: "pt-panel",
+                    word: RwSignal::new(None),
+                },
+                size: PaliSize::Body,
+                more_label: None,
+                entry_action: None,
+                lookup: Some(lookup),
+                empty_label: None,
+            };
+            let tokens = words(LINE);
+            let segs = segments(&tokens, &vakkali_map(), true);
+            // press as the button does: open, then ask when empty
+            let press = |index: usize, entries: &[WordEntry], form: &str| {
+                ctx.open.press(index);
+                if entries.is_empty() && ctx.open.current() == Some(index) {
+                    ctx.lookup.unwrap().run(form.to_string());
+                }
+            };
+            let word = |i: usize| match &segs[i] {
+                Segment::Word { form, entries } => (form.clone(), entries.clone()),
+                Segment::Plain(_) => panic!("a word"),
+            };
+            let (form, entries) = word(0);
+            press(0, &entries, &form);
+            assert_eq!(
+                asked.get_untracked().len(),
+                0,
+                "alaṃ has entries: no lookup"
+            );
+            ctx.open.close();
+            let kim = segs
+                .iter()
+                .position(|s| matches!(s, Segment::Word { form, .. } if form == "kiṃ"))
+                .unwrap();
+            let (form, entries) = word(kim);
+            press(kim, &entries, &form);
+            assert_eq!(asked.get_untracked(), vec!["kiṃ".to_string()]);
+            press(kim, &entries, &form);
+            assert_eq!(asked.get_untracked().len(), 1, "closing asks nothing");
+        });
     }
 
     /// The opening tags of every `<button`.
@@ -1200,7 +1382,15 @@ mod render_tests {
     /// through the component's own wiring, a click being a browser's.
     fn component_open(open: usize, entry_action: Option<EntryAction>) -> String {
         Owner::new().with(|| {
-            let ctx = new_ctx("pt-panel", PaliSize::Body, None, entry_action, Some(open));
+            let ctx = new_ctx(
+                "pt-panel",
+                PaliSize::Body,
+                None,
+                entry_action,
+                Some(open),
+                None,
+                None,
+            );
             passage(LINE, Signal::stored(vakkali_map()), ctx, String::new()).to_html()
         })
     }
@@ -1289,6 +1479,8 @@ mod render_tests {
                 size: PaliSize::Body,
                 more_label: None,
                 entry_action: None,
+                lookup: None,
+                empty_label: None,
             };
             passage("<b>", Signal::stored(map), ctx, String::new()).to_html()
         });
