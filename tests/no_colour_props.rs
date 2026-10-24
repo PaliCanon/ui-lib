@@ -1,10 +1,10 @@
-//! 079's refusals, held by a scan: the display components take a TONE or a
+//! 079's and 080's refusals, held by a scan: the display, input and feedback components take a TONE or a
 //! variant, never a colour. In their code (comments and tests aside) it
 //! refuses a hex value inside a string, a Tailwind palette colour
 //! (`text-red-500`, `bg-slate-800`), an arbitrary value (`bg-[…]`), and a
 //! `style=` attribute or a `color`/`colour`/`style` prop.
 
-const FILES: [&str; 7] = [
+const FILES: [&str; 12] = [
     "src/tone.rs",
     "src/badge.rs",
     "src/surface.rs",
@@ -12,6 +12,11 @@ const FILES: [&str; 7] = [
     "src/callout.rs",
     "src/tabs.rs",
     "src/data_table.rs",
+    "src/field.rs",
+    "src/switch.rs",
+    "src/copy_field.rs",
+    "src/toast.rs",
+    "src/confirm.rs",
 ];
 
 const PALETTE: [&str; 24] = [

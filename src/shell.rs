@@ -182,6 +182,14 @@ pub fn AppShell(
     /// the request's Origin); none by default.
     #[prop(optional)]
     sign_out: Option<&'static str>,
+    /// What sits under the logo — a tenant or workspace switcher (080).
+    /// Called once per place it shows in, each mounted for the page's life:
+    /// the desktop rail (hidden while the rail is collapsed) and the top of
+    /// the phone menu. Two places are two
+    /// instances, so the caller suffixes its ids with the [`SlotPlace`] and
+    /// shares state through its own signals.
+    #[prop(optional, into)]
+    rail_top: Option<Callback<SlotPlace, AnyView>>,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
@@ -202,15 +210,36 @@ pub fn AppShell(
         // page column, its footer at the bottom. A short page is one screen,
         // top bar included.
         <div class="flex min-h-screen flex-col">
-            <MobileNav logo=logo nav=nav.clone() env_badge=env_badge />
+            <MobileNav logo=logo nav=nav.clone() env_badge=env_badge top=rail_top />
             <div class="flex flex-1 flex-col sm:flex-row">
-                <DesktopRail logo=logo nav=nav env_badge=env_badge />
+                <DesktopRail logo=logo nav=nav env_badge=env_badge top=rail_top />
                 <div class="flex min-w-0 flex-1 flex-col">
                     {children()}
                     {footer.map(|footer| view! { <div class="mt-auto">{footer.run()}</div> })}
                 </div>
             </div>
         </div>
+    }
+}
+
+/// Where [`AppShell`]'s `rail_top` slot is being rendered (080).
+#[non_exhaustive]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlotPlace {
+    /// The desktop rail, under the logo, while the rail is open.
+    Rail,
+    /// The top of the phone's full-screen menu.
+    PhoneMenu,
+}
+
+impl SlotPlace {
+    /// A short word to suffix ids with: `rail`, `phone`.
+    #[must_use]
+    pub fn suffix(self) -> &'static str {
+        match self {
+            SlotPlace::Rail => "rail",
+            SlotPlace::PhoneMenu => "phone",
+        }
     }
 }
 
@@ -437,6 +466,7 @@ fn DesktopRail(
     logo: &'static str,
     nav: Option<NavList>,
     env_badge: Option<EnvBadgeInfo>,
+    top: Option<Callback<SlotPlace, AnyView>>,
 ) -> impl IntoView {
     let ShellState {
         rail_open,
@@ -458,6 +488,16 @@ fn DesktopRail(
                     <LotusToggle controls=Disclosed::new("pc-rail", rail_open) logo=logo />
                     <Wordmark shown=rail_open />
                 </div>
+                {top
+                    .map(|top| {
+                        // Hidden, not unmounted, while the rail is collapsed:
+                        // the slot keeps its state across a toggle (review 080).
+                        view! {
+                            <div class="px-3.5 pb-2" hidden=move || !rail_open.get()>
+                                {top.run(SlotPlace::Rail)}
+                            </div>
+                        }
+                    })}
                 <div class="flex flex-col gap-1 overflow-y-auto px-3.5 pb-3.5">
                     {nav.map(|nav| view! { <RailSections nav=nav open=rail_open /> })}
                 </div>
@@ -544,6 +584,7 @@ fn MobileNav(
     logo: &'static str,
     nav: Option<NavList>,
     env_badge: Option<EnvBadgeInfo>,
+    top: Option<Callback<SlotPlace, AnyView>>,
 ) -> impl IntoView {
     let state = expect_context::<ShellState>();
     let menu_open = state.menu_open;
@@ -571,6 +612,9 @@ fn MobileNav(
             hidden=move || !menu_open.get()
         >
             <MobileMenuHeader logo=logo menu=menu />
+            // Outside the entries' container: using the slot (a switcher)
+            // does not close the menu.
+            {top.map(|top| view! { <div class="px-3 pt-1">{top.run(SlotPlace::PhoneMenu)}</div> })}
             // Clicks bubble up from the entries: choosing one closes the menu.
             // Language and Settings sit outside this container: choosing a
             // language or opening Settings must not close the mobile menu.
@@ -841,6 +885,66 @@ mod tests {
             }
             .to_html()
         })
+    }
+
+    /// The shell with a `rail_top` slot that writes its place, the rail
+    /// open or closed.
+    fn render_slot(rail_open: bool) -> String {
+        Owner::new().with(move || {
+            let request = http::Request::builder()
+                .header(http::header::COOKIE, format!("pc_rail={rail_open}"))
+                .body(())
+                .unwrap();
+            provide_context(request.into_parts().0);
+            let slot = Callback::new(|place: SlotPlace| {
+                view! { <span data-slot=place.suffix()>"switcher"</span> }.into_any()
+            });
+            view! {
+                <AppShell rail_top=slot>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        })
+    }
+
+    #[test]
+    fn the_slot_is_drawn_once_per_place_under_the_logo() {
+        let open = render_slot(true);
+        assert_eq!(
+            rail(&open).matches(r#"data-slot="rail""#).count(),
+            1,
+            "{open}"
+        );
+        assert_eq!(
+            mobile(&open).matches(r#"data-slot="phone""#).count(),
+            1,
+            "{open}"
+        );
+        assert_eq!(open.matches("data-slot=").count(), 2, "{open}");
+        let closed = render_slot(false);
+        let rail_closed = rail(&closed);
+        assert_eq!(
+            rail_closed.matches(r#"data-slot="rail""#).count(),
+            1,
+            "kept mounted: {closed}"
+        );
+        let at = rail_closed.find(r#"data-slot="rail""#).unwrap();
+        let wrapper = &rail_closed[rail_closed[..at].rfind("<div").unwrap()..at];
+        assert!(
+            wrapper.contains("hidden"),
+            "hidden while collapsed: {wrapper}"
+        );
+        assert_eq!(
+            mobile(&closed).matches(r#"data-slot="phone""#).count(),
+            1,
+            "{closed}"
+        );
+    }
+
+    #[test]
+    fn no_slot_by_default() {
+        assert!(!render(None).contains("data-slot="));
     }
 
     /// The desktop rail's markup alone: its `<nav>`, open tag to close.

@@ -21,5 +21,15 @@
   "callout_dismiss": "Fermer",
   "table_empty": "Rien pour l’instant.",
   "table_truncated": "La liste s’arrête ici ; il y en a d’autres.",
-  "table_actions": "Actions"
+  "table_actions": "Actions",
+  "field_add": "Ajouter une ligne",
+  "field_remove": "Retirer {{ value }}",
+  "field_remove_empty": "Retirer la ligne vide",
+  "field_line": "Ligne {{ n }}",
+  "copy": "Copier",
+  "copied": "Copié",
+  "copy_selected": "Sélectionné — copiez-le",
+  "confirm_cancel": "Annuler",
+  "confirm_busy": "En cours…",
+  "confirm_type": "Tapez {{ text }} pour confirmer"
 }

@@ -654,6 +654,14 @@ mod gold_text_contrast {
                     assert!(r >= 4.5, "{name}: {text} on {fill} over {base} is {r:.2}:1");
                 }
             }
+            // 080: the Danger button's label is the page colour on the danger fill.
+            let page = hex(b, "--ps-page").expect("page");
+            let danger = hex(b, "--ps-danger").expect("danger");
+            let r = ratio(page, danger);
+            assert!(
+                r >= 4.5,
+                "{name}: --ps-page on --ps-danger (the Danger button) is {r:.2}:1"
+            );
             let (muted, chip) = (
                 hex(b, "--ps-muted").expect("muted"),
                 hex(b, "--ps-chip").expect("chip"),

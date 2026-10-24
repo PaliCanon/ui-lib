@@ -4,6 +4,10 @@
 
 /// What a button looks like. Each variant defines every state: at rest,
 /// hovered, keyboard-focused, open or on, pressed, disabled.
+///
+/// `#[non_exhaustive]` (080): a variant added later is not a breaking change
+/// for a service that matches on it.
+#[non_exhaustive]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Variant {
     /// A bare icon: the lotus, a close cross, a gear. Always square.
@@ -22,6 +26,9 @@ pub enum Variant {
     Nav,
     /// A box of stacked content: a counter cell, a link or a plain surface.
     Tile,
+    /// An act that cannot be undone, at the end of a confirmation: cut every
+    /// session, delete (080).
+    Danger,
 }
 
 /// How big a button is. `Md` is the default and the smallest comfortable
@@ -86,7 +93,8 @@ fn variant_classes(variant: Variant) -> &'static str {
              aria-checked:border-gold aria-checked:bg-gold/10 aria-checked:text-heading"
         }
         Variant::Primary => {
-            "gap-2 justify-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:brightness-95"
+            "gap-2 justify-center rounded-full bg-primary text-on-primary hover:bg-primary-hover active:brightness-95 \
+             aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:bg-primary"
         }
         Variant::Accent => {
             "gap-2 justify-center rounded-full border border-gold/40 bg-gold/5 text-heading hover:border-gold hover:bg-gold/10 \
@@ -100,6 +108,11 @@ fn variant_classes(variant: Variant) -> &'static str {
         }
         Variant::Ghost => {
             "gap-2 justify-center rounded-sm text-gold-text underline underline-offset-4 hover:text-heading"
+        }
+        Variant::Danger => {
+            "gap-2 justify-center rounded-full bg-danger text-page hover:brightness-110 active:brightness-95 \
+             disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:brightness-100 \
+             aria-disabled:cursor-not-allowed aria-disabled:opacity-50 aria-disabled:hover:brightness-100"
         }
     }
 }
@@ -150,7 +163,7 @@ pub fn classes(variant: Variant, size: Size, layout: &str) -> String {
 mod tests {
     use super::*;
 
-    const ALL: [Variant; 7] = [
+    const ALL: [Variant; 8] = [
         Variant::Icon,
         Variant::Chip,
         Variant::Primary,
@@ -158,6 +171,7 @@ mod tests {
         Variant::Ghost,
         Variant::Nav,
         Variant::Tile,
+        Variant::Danger,
     ];
 
     #[test]

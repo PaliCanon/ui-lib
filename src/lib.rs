@@ -86,10 +86,13 @@ pub mod carousel;
 mod catalogue;
 // Present only under the `csr` feature (an inner cfg in the file: the grep
 // gates keep every `csr` cfg in csr.rs).
+pub mod confirm;
+pub mod copy_field;
 pub mod csr;
 pub mod data_table;
 pub mod dialog;
 pub mod env_badge;
+pub mod field;
 mod focus_trap;
 pub mod footer;
 pub mod hydration;
@@ -112,8 +115,10 @@ pub mod shell;
 pub mod slider;
 pub mod store;
 pub mod surface;
+pub mod switch;
 pub mod tabs;
 pub mod theme;
+pub mod toast;
 pub mod tone;
 mod viewport;
 
@@ -132,9 +137,12 @@ pub use button::{
 };
 pub use callout::Callout;
 pub use carousel::Carousel;
+pub use confirm::{ConfirmDialog, may_confirm};
+pub use copy_field::CopyField;
 pub use data_table::{Align, Column, DataTable};
 pub use dialog::{Dialog, DialogSection, DialogSize};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
+pub use field::{FieldKind, FocusAfter, ListField, ListRow, TextField, focus_after_remove};
 pub use footer::{Footer, FooterLink};
 // A glob: `app_root` and `hydrate` exist only under `hydrate`, a cfg that
 // lives in hydration.rs alone (the grep gates, tests/cfg_gates.rs).
@@ -156,10 +164,12 @@ pub use presence::Presence;
 pub use reveal_card::RevealCard;
 pub use search::{SearchCard, SearchRow};
 pub use session_header::SessionHeader;
-pub use shell::{AppShell, LanguagePicker, ShellState};
+pub use shell::{AppShell, LanguagePicker, ShellState, SlotPlace};
 pub use slider::Slider;
 pub use store::{Store, StoreError};
 pub use surface::{Card, PageHeader, Section};
+pub use switch::Switch;
 pub use tabs::{TabOption, TabPanel, TabSet, Tabs, panel_id, tab_id};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};
+pub use toast::{TOAST_LIFETIME, Toaster, Toasts, provide_toaster, use_toaster};
 pub use tone::Tone;

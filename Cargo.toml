@@ -1,7 +1,7 @@
 [package]
 name = "palicanon-ui-lib"
 description = "PaliCanon's UI library: the shell, components, theme, languages and motion every service builds on (promoted from ui-lab once validated)."
-version = "0.4.6"
+version = "0.4.7"
 edition = "2024"
 license = "CC-BY-NC-4.0"
 repository = "https://github.com/PaliCanon/ui-lib"
@@ -17,7 +17,9 @@ leptos_i18n = { version = "0.6.2", default-features = false }
 http = { version = "1", optional = true }
 # Browser side: document.cookie.
 wasm-bindgen = { version = "0.2", optional = true }
-web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location", "Element", "NodeList", "HtmlElement", "HtmlDivElement", "HtmlImageElement", "CssStyleDeclaration", "DomRect", "VisualViewport", "EventTarget", "AddEventListenerOptions", "Storage", "Navigator", "console"] }
+# Awaits the Clipboard API's promise, so CopyField says "Copied" only when it was (080).
+wasm-bindgen-futures = { version = "0.4", optional = true }
+web-sys = { version = "0.3", optional = true, features = ["Document", "HtmlDocument", "Window", "Location", "Element", "NodeList", "HtmlElement", "HtmlDivElement", "HtmlImageElement", "HtmlInputElement", "Clipboard", "CssStyleDeclaration", "DomRect", "VisualViewport", "EventTarget", "AddEventListenerOptions", "Storage", "Navigator", "console"] }
 
 [build-dependencies]
 # What leptos_i18n_build wraps, used directly: its diagnostics are needed to
@@ -48,7 +50,7 @@ web-sys = { version = "0.3", features = ["DomImplementation"] }
 [features]
 ssr = ["leptos/ssr", "dep:http"]
 # The browser-side code (cookies, DOM glue), shared by both client modes.
-browser = ["dep:wasm-bindgen", "dep:web-sys"]
+browser = ["dep:wasm-bindgen", "dep:wasm-bindgen-futures", "dep:web-sys"]
 # The browser takes the server's HTML over.
 hydrate = ["leptos/hydrate", "browser"]
 # The browser builds the page from an empty document (no server).
