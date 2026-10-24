@@ -1,6 +1,6 @@
 # 079 The display components a console needs — Badge, Avatar, Card, Section, PageHeader, Callout, Tabs, DataTable
 
-status: user check · rank: 5 · level: standard · type: feat · request: anatta-console 096 (the console rebuilt as a Leptos SPA; the user, 2026-10-24) · session: ui-lib-078-display-components (workspace ui-lib; opened as 078 before the collision, see the Log)
+status: merged · rank: 5 · level: standard · type: feat · request: anatta-console 096 (the console rebuilt as a Leptos SPA; the user, 2026-10-24) · session: ui-lib-078-display-components (workspace ui-lib; opened as 078 before the collision, see the Log)
 
 ## Summary
 The anatta console is rebuilt as a Leptos SPA from a mockup the user validated (claude.ai/artifact/3fF6JfWYjQzvPqEdV3i4Me). The user wants every generic piece in ui-lib, "réutilisable et paramétrable", built directly here (no ui-lab incubation; the gallery page still shows them). Rank 5: difficulty 3 (eight components, two stateful), impact 3 (additive, every service unchanged), signals: a theme change, a contrast finding.
@@ -42,3 +42,11 @@ flowchart LR
 | The phone shot of the gallery is clipped by headless Chrome's minimum window width (an existing page, /cards, clips the same) | none: a tool limit, not the components |
 
 ## Merge
+
+77af41e, released v0.4.6
+
+## Retro
+
+Errors: (1) the shared surface (theme.css, the task number, the version) was not checked against PaliCanon's open work before Build — another session took 078, a success token and v0.4.5 the same day; cost: a renumber and a re-application with one conflict, the released value adopted. (2) The first contrast test checked the tones on bare surfaces while the components paint them on soft fills; deep caught it and the composited test failed twice. (3) Three scripted edits missed their anchor after `cargo fmt`; each was caught by its assertion and redone. What held: looking at the gallery by eye found the pre-hydration image defect no test saw; every new guard was probed against a defect before trusting it.
+
+Lessons and actions: a task that touches theme.css (or any token table) greps ui-lib's main and open branches for the same tokens and takes its number when it MERGES, not when it opens (the number is the merge order here); contrast is tested on the composited pair a component paints, not on the surface alone.
