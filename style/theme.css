@@ -43,6 +43,7 @@
   --ps-on-gold: #20262e;
   --ps-mark: rgb(201 168 76 / 0.16);
   --ps-danger: #e07a7a;
+  --ps-success: #7fc98f;
   --ps-glass: rgb(44 51 61 / 0.6);
   --ps-glow: rgb(201 168 76 / 0.2);
   --ps-halo: rgb(201 168 76 / 0.14);
@@ -74,6 +75,7 @@
   --ps-on-gold: #fffaf0;
   --ps-mark: rgb(232 163 23 / 0.22);
   --ps-danger: #b03a3a;
+  --ps-success: #286b40;
   --ps-glass: rgb(245 236 215 / 0.8);
   --ps-glow: rgb(184 125 15 / 0.18);
   --ps-halo: rgb(184 125 15 / 0.1);
@@ -107,6 +109,7 @@
     --ps-on-gold: #fffaf0;
     --ps-mark: rgb(232 163 23 / 0.22);
     --ps-danger: #b03a3a;
+    --ps-success: #286b40;
     --ps-glass: rgb(245 236 215 / 0.8);
     --ps-glow: rgb(184 125 15 / 0.18);
     --ps-halo: rgb(184 125 15 / 0.1);
@@ -138,6 +141,7 @@
   --color-on-gold: var(--ps-on-gold);
   --color-mark: var(--ps-mark);
   --color-danger: var(--ps-danger);
+  --color-success: var(--ps-success);
   --color-glass: var(--ps-glass);
   --color-glow: var(--ps-glow);
   --color-halo: var(--ps-halo);

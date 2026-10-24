@@ -621,13 +621,14 @@ mod gold_text_contrast {
         "--ps-chip",
         "--ps-field",
     ];
-    const RESTING_TEXT: [&str; 6] = [
+    const RESTING_TEXT: [&str; 7] = [
         "--ps-heading",
         "--ps-ink",
         "--ps-muted",
         "--ps-subtle",
         "--ps-gold-text",
         "--ps-danger",
+        "--ps-success",
     ];
 
     /// The ratio of two tokens of a block, `None` when one is not a hex value
@@ -664,7 +665,7 @@ mod gold_text_contrast {
     /// The design's light tokens (task 065, palicanon.app's cream): the one
     /// place a value change is reviewed. Names carry the `--ps-` prefix and
     /// values are written as in `theme.css`.
-    const LIGHT_TOKENS: [(&str, &str); 26] = [
+    const LIGHT_TOKENS: [(&str, &str); 27] = [
         ("--ps-page", "#fdf6e3"),
         ("--ps-rail", "#f5ecd7"),
         ("--ps-primary", "#f0e5cc"),
@@ -686,6 +687,7 @@ mod gold_text_contrast {
         ("--ps-on-gold", "#fffaf0"),
         ("--ps-mark", "rgb(232 163 23 / 0.22)"),
         ("--ps-danger", "#b03a3a"),
+        ("--ps-success", "#286b40"),
         ("--ps-glass", "rgb(245 236 215 / 0.8)"),
         ("--ps-glow", "rgb(184 125 15 / 0.18)"),
         ("--ps-halo", "rgb(184 125 15 / 0.1)"),
@@ -697,7 +699,7 @@ mod gold_text_contrast {
         value.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
-    /// Both light blocks declare exactly the design's 26 names (no extra,
+    /// Both light blocks declare exactly the design's 27 names (no extra,
     /// none missing, none declared twice) with exactly its values.
     #[test]
     fn each_light_block_is_the_designs_table() {
