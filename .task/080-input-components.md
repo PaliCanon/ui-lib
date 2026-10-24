@@ -1,6 +1,6 @@
 # 080 The input and feedback components a console needs — TextField, ListField, Switch, CopyField, toasts, ConfirmDialog
 
-status: user check · rank: 5 · level: standard · type: feat · request: anatta-console 096 (the SPA), after 079 · session: ui-lib-080-input-components (workspace ui-lib) · number: working, re-checked against main at merge (lesson 2026-10-24)
+status: merged · rank: 5 · level: standard · type: feat · request: anatta-console 096 (the SPA), after 079 · session: ui-lib-080-input-components (workspace ui-lib) · number: working, re-checked against main at merge (lesson 2026-10-24)
 
 ## Summary
 The second half of what the anatta console's SPA needs from ui-lib, generic and parametrable (user, 2026-10-24). Rank 5: difficulty 3 (six components, browser timers and focus), impact 3 (additive; one enum made non-exhaustive, no service matches it). Shared surfaces named at open and grepped against main and every open branch: button/style.rs, shell.rs, locales, lib.rs — no open branch touches them recently.
@@ -43,3 +43,11 @@ flowchart LR
 | ListRow ids are per process: a list rendered on the server is rebuilt on hydration | documented; the console's SPA builds rows in the browser |
 
 ## Merge
+
+cdf77cb, released v0.4.7 (the number and the version checked against main at merge: free)
+
+## Retro
+
+Errors: (1) a prop named `slot` on two child components silently dropped them from the render — Leptos reserves the name; caught only because the shell has 69 tests; (2) a review-1 fix (the confirm's hold) introduced a regression for callers with no `pending`, caught in round 2 — a fix that adds state needs the same "who releases it" question as the design; (3) browser timers started at render reached wasm-bindgen on the server; (4) leptosfmt and cargo fmt fought over three files until run in that order; (5) three scripted edits missed anchors after formatting, each caught by its assertion. What held: the number and version checked at merge (the 079 lesson), every guard probed, the dialog and toasts opened for one screenshot.
+
+Lessons: in Leptos, never name a component prop `slot`; a fix that holds state names its release in the same commit (on success, failure and close).
