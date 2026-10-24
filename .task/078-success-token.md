@@ -1,6 +1,6 @@
 # 078 A success colour token
 
-status: building · rank: 1 · level: simple · type: feat · request: learn-pali 072 (the user, 2026-10-24: « le résultat en vert quand c'est bon, sinon en rouge et le bon en vert »)
+status: merged · rank: 1 · level: simple · type: feat · request: learn-pali 072 (the user, 2026-10-24: « le résultat en vert quand c'est bon, sinon en rouge et le bon en vert »)
 worktree: /Users/lsh/projects/palicanon/wt/ui-lib-078/ui-lib (branch `feat/success-token`)
 
 ## Summary
@@ -15,3 +15,6 @@ The theme had `danger` (red) and no green. `--ps-success` (`#286b40` light, `#7f
 
 ## Retro
 One line: a token a service needs goes straight to ui-lib (ui-lib.md); nothing to learn.
+
+## Merge
+bdc1dbd on main (squash), 2026-10-24; tag v0.4.5.
