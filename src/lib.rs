@@ -164,7 +164,7 @@ pub use presence::Presence;
 pub use reveal_card::RevealCard;
 pub use search::{SearchCard, SearchRow};
 pub use session_header::SessionHeader;
-pub use shell::{AppShell, LanguagePicker, ShellState, SlotPlace};
+pub use shell::{AppShell, DEFAULT_APP_NAME, LanguagePicker, ShellState, SlotPlace};
 pub use slider::Slider;
 pub use store::{Store, StoreError};
 pub use surface::{Card, PageHeader, Section};

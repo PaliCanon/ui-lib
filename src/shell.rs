@@ -126,17 +126,35 @@ fn Lotus(logo: &'static str) -> impl IntoView {
     view! { <img src=logo alt="" width="28" height="28" class="size-7" /> }
 }
 
-/// The name "PaliCanon", beside the lotus; `shown` fades it in and out (the
-/// desktop rail shows it only when open).
+/// The app's name in the shell (082): the wordmark beside the logo and the
+/// navigation's accessible name. Provided by [`AppShell`] from its `name`.
+#[derive(Clone, Copy, Debug)]
+struct AppName(&'static str);
+
+/// The name of a shell given none, and of a part rendered outside one.
+pub const DEFAULT_APP_NAME: &str = "PaliCanon";
+
+/// The name the shell shows: `AppShell`'s `name` (a blank one falls back,
+/// so the navigation always has an accessible name), the default outside.
+fn app_name() -> &'static str {
+    use_context::<AppName>()
+        .map(|n| n.0)
+        .filter(|n| !n.trim().is_empty())
+        .unwrap_or(DEFAULT_APP_NAME)
+}
+
+/// The app's name beside the logo; `shown` fades it in and out (the desktop
+/// rail shows it only when open).
 #[component]
 fn Wordmark(#[prop(into)] shown: Signal<bool>) -> impl IntoView {
+    let name = app_name();
     view! {
         <span
             class="font-serif text-lg font-semibold whitespace-nowrap text-heading transition-opacity duration-150"
             class:opacity-0=move || !shown.get()
             aria-hidden="true"
         >
-            "PaliCanon"
+            {name}
         </span>
     }
 }
@@ -152,6 +170,10 @@ pub fn AppShell(
     /// URL of the lotus image, served by the service.
     #[prop(default = "/lotus.png")]
     logo: &'static str,
+    /// The app's name: the wordmark beside the logo and the navigation's
+    /// accessible name (082); "PaliCanon" by default.
+    #[prop(default = DEFAULT_APP_NAME)]
+    name: &'static str,
     /// The app's navigation, below the lotus; none by default.
     #[prop(optional)]
     nav: Option<NavList>,
@@ -200,6 +222,7 @@ pub fn AppShell(
         sign_out,
     });
     close_on_escape(state);
+    provide_context(AppName(name));
     apply_theme(state.theme);
     apply_language(state.language);
     view! {
@@ -478,7 +501,7 @@ fn DesktopRail(
     view! {
         <nav
             id="pc-rail"
-            aria-label="PaliCanon"
+            aria-label=app_name()
             class="z-30 hidden shrink-0 border-r border-line bg-rail transition-[width] duration-200 sm:block"
             style:width=move || rail_width(rail_open.get())
             data-open=move || rail_open.get().to_string()
@@ -607,7 +630,7 @@ fn MobileNav(
             id="pc-menu"
             role="dialog"
             aria-modal="true"
-            aria-label="PaliCanon"
+            aria-label=app_name()
             class="fixed inset-0 z-40 flex flex-col bg-rail sm:hidden"
             hidden=move || !menu_open.get()
         >
@@ -940,6 +963,42 @@ mod tests {
             1,
             "{closed}"
         );
+    }
+
+    #[test]
+    fn the_name_is_palicanon_by_default_and_the_apps_when_given() {
+        assert!(render(None).contains("PaliCanon</span>"));
+        let named = Owner::new().with(|| {
+            view! {
+                <AppShell name="anatta">
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        assert!(named.contains(">anatta</span>"), "the wordmark: {named}");
+        assert!(
+            rail(&named).contains(r#"aria-label="anatta""#),
+            "the rail's name: {named}"
+        );
+        assert!(
+            mobile(&named).contains(r#"aria-label="anatta""#),
+            "the phone menu's name: {named}"
+        );
+        assert!(!named.contains("PaliCanon"), "{named}");
+    }
+
+    #[test]
+    fn a_blank_name_falls_back_so_the_navigation_keeps_a_name() {
+        let out = Owner::new().with(|| {
+            view! {
+                <AppShell name="  ">
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        });
+        assert!(rail(&out).contains(r#"aria-label="PaliCanon""#), "{out}");
     }
 
     #[test]
