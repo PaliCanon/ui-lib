@@ -8,9 +8,10 @@
 //!
 //! The empty state is decided from the same rows the server rendered, so
 //! SSR and hydration agree as long as the caller hands both the same initial
-//! rows. On a phone the table scrolls in its own box; `hide_on_phone` drops
-//! a column below `sm`, for SECONDARY columns only — nothing a phone user
-//! needs.
+//! rows. Below `sm` each row stacks as a card (083): every cell on its own
+//! line, its column's header beside it (`data-label`), the actions last —
+//! CSS only, so SSR and hydration render the same markup; `hide_on_phone`
+//! drops a column there, for SECONDARY columns only.
 
 use std::sync::Arc;
 
@@ -82,17 +83,33 @@ impl<T> Column<T> {
             Align::Start => "text-left",
             Align::End => "text-right",
         };
-        let phone = if self.hide_on_phone {
-            "hidden sm:table-cell"
+        if head {
+            let phone = if self.hide_on_phone {
+                "hidden sm:table-cell"
+            } else {
+                ""
+            };
+            return format!(
+                "px-5 py-3 text-xs font-medium uppercase tracking-wide text-muted \
+                 border-b border-line {align} {phone}"
+            );
+        }
+        let cell = "px-5 py-3.5 border-b border-line align-middle";
+        // A secondary cell leaves phones whole: no card line to conflict with.
+        if self.hide_on_phone {
+            return format!("{cell} {align} max-sm:hidden");
+        }
+        // Below sm: a line of the row's card, the header as its label.
+        let line = "max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:border-0 \
+                    max-sm:py-1.5 max-sm:min-w-0";
+        let stacked = if self.header.is_empty() {
+            "max-sm:justify-end max-sm:pt-3"
         } else {
-            ""
+            "max-sm:justify-between max-sm:before:shrink-0 max-sm:before:text-xs \
+             max-sm:before:font-medium max-sm:before:uppercase max-sm:before:tracking-wide \
+             max-sm:before:text-muted max-sm:before:content-[attr(data-label)]"
         };
-        let cell = if head {
-            "px-5 py-3 text-xs font-medium uppercase tracking-wide text-muted border-b border-line"
-        } else {
-            "px-5 py-3.5 border-b border-line align-middle"
-        };
-        format!("{cell} {align} {phone}")
+        format!("{cell} {align} {line} {stacked}")
     }
 }
 
@@ -117,9 +134,28 @@ fn head_cells<T>(columns: &[Column<T>]) -> impl IntoView + use<T> {
                 c.header.clone().into_any()
             };
             view! {
-                <th scope="col" class=c.classes(true)>
+                <th scope="col" role="columnheader" class=c.classes(true)>
                     {text}
                 </th>
+            }
+        })
+        .collect_view()
+}
+
+/// One row's cells, each carrying its column's header as `data-label`
+/// (the card's label below sm, 083).
+fn row_cells<T>(columns: &[Column<T>], row: &T) -> impl IntoView + use<T> {
+    columns
+        .iter()
+        .map(|c| {
+            view! {
+                <td
+                    role="cell"
+                    class=c.classes(false)
+                    data-label=(!c.header.is_empty()).then(|| c.header.clone())
+                >
+                    {(c.cell)(row)}
+                </td>
             }
         })
         .collect_view()
@@ -170,23 +206,23 @@ where
     };
     let truncated = move || truncated.is_some_and(|s| s.get());
     view! {
-        <div class="overflow-x-auto rounded-2xl border border-card-edge bg-card">
-            <table class="w-full border-collapse text-sm text-ink">
+        <div class="min-w-0 overflow-x-auto rounded-2xl border border-card-edge bg-card">
+            // The roles are explicit: below sm the table's parts are blocks,
+            // and some screen readers stop announcing a table then (083).
+            <table role="table" class="w-full border-collapse text-sm text-ink max-sm:block">
                 <caption class="sr-only">{label}</caption>
-                <thead>
-                    <tr>{heads}</tr>
+                // Below sm the cards show each header as a label; the head
+                // row stays for screen readers, out of sight.
+                <thead role="rowgroup" class="max-sm:sr-only">
+                    <tr role="row">{heads}</tr>
                 </thead>
-                <tbody>
+                <tbody role="rowgroup" class="max-sm:block">
                     <For each=body key=key let:row>
-                        <tr>
-                            {cols
-                                .with_value(|cs| {
-                                    cs.iter()
-                                        .map(|c| {
-                                            view! { <td class=c.classes(false)>{(c.cell)(&row)}</td> }
-                                        })
-                                        .collect_view()
-                                })}
+                        <tr
+                            role="row"
+                            class="max-sm:block max-sm:border-b max-sm:border-line max-sm:px-0 max-sm:py-3 max-sm:last:border-b-0"
+                        >
+                            {cols.with_value(|cs| row_cells(cs, &row))}
                         </tr>
                     </For>
                     <Show when=move || rows.with(Vec::is_empty)>
@@ -273,6 +309,61 @@ mod tests {
                 "a secondary column leaves phones: {out}"
             );
             assert!(out.contains("overflow-x-auto"), "the box scrolls: {out}");
+        }
+
+        /// 083: below sm a row is a card — the head row leaves, every cell
+        /// carries its column's header as `data-label` shown before it, and
+        /// the actions cell sits at the end.
+        #[test]
+        fn below_sm_each_row_stacks_with_its_labels() {
+            let out = table(
+                vec![Member {
+                    sub: "u1",
+                    email: "ann@example.org",
+                }],
+                false,
+            );
+            assert!(
+                out.contains(r#"<thead role="rowgroup" class="max-sm:sr-only">"#),
+                "the head stays for screen readers: {out}"
+            );
+            assert!(
+                out.contains(r#"<tr role="row" class="max-sm:block"#),
+                "{out}"
+            );
+            assert!(
+                out.contains(r#"<table role="table""#) && out.contains(r#"role="cell""#),
+                "{out}"
+            );
+            assert!(out.contains(r#"data-label="Member""#), "{out}");
+            // The secondary column's cell leaves phones and is no card line.
+            let joined = out
+                .split("<td")
+                .find(|c| c.contains("today"))
+                .expect("the Joined cell");
+            assert!(joined.contains("max-sm:hidden"), "{joined}");
+            assert!(
+                !joined.contains("max-sm:flex") && !joined.contains("before:content"),
+                "{joined}"
+            );
+            // The actions cell carries no empty label.
+            let actions = out
+                .split("<td")
+                .find(|c| c.contains("act u1"))
+                .expect("the actions cell");
+            assert!(!actions.contains("data-label"), "{actions}");
+            assert!(
+                out.contains("max-sm:before:content-[attr(data-label)]"),
+                "{out}"
+            );
+            assert!(
+                out.contains("max-sm:justify-end"),
+                "the actions last: {out}"
+            );
+            assert!(
+                out.contains("min-w-0 overflow-x-auto"),
+                "the box never widens the page: {out}"
+            );
         }
 
         #[test]

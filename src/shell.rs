@@ -212,10 +212,15 @@ pub fn AppShell(
     /// shares state through its own signals.
     #[prop(optional, into)]
     rail_top: Option<Callback<SlotPlace, AnyView>>,
+    /// Whether the desktop rail starts open when the person has not chosen
+    /// yet (no `pc_rail` cookie); their choice wins once made (083). Off by
+    /// default: a reading app keeps the page wide, a console shows its rail.
+    #[prop(optional)]
+    rail_open: bool,
     /// The service's page.
     children: Children,
 ) -> impl IntoView {
-    let state = shell_state();
+    let state = shell_state(rail_open);
     provide_context(state);
     provide_context(ShellOptions {
         language_in_settings,
@@ -268,9 +273,9 @@ impl SlotPlace {
 
 /// A fresh [`ShellState`]: the rail as remembered, everything else closed,
 /// the theme and the language as this render resolved them.
-fn shell_state() -> ShellState {
+fn shell_state(rail_open: bool) -> ShellState {
     ShellState {
-        rail_open: persisted("rail", false),
+        rail_open: persisted("rail", rail_open),
         menu_open: RwSignal::new(false),
         settings_open: RwSignal::new(false),
         language_open: RwSignal::new(false),
@@ -929,6 +934,41 @@ mod tests {
             }
             .to_html()
         })
+    }
+
+    /// The rail as a first visit (no `pc_rail`) and as a remembered choice
+    /// render it, for `rail_open`.
+    fn render_rail(cookie: Option<&'static str>, rail_open: bool) -> String {
+        Owner::new().with(move || {
+            let mut request = http::Request::builder();
+            if let Some(cookie) = cookie {
+                request = request.header(http::header::COOKIE, cookie);
+            }
+            provide_context(request.body(()).unwrap().into_parts().0);
+            view! {
+                <AppShell rail_open=rail_open>
+                    <p>"page"</p>
+                </AppShell>
+            }
+            .to_html()
+        })
+    }
+
+    /// 083: `rail_open` is the first visit's state; the person's choice wins.
+    #[test]
+    fn rail_open_is_the_default_and_a_remembered_choice_wins() {
+        for (cookie, rail_open, open) in [
+            (None, false, false),
+            (None, true, true),
+            (Some("pc_rail=false"), true, false),
+            (Some("pc_rail=true"), false, true),
+        ] {
+            let html = render_rail(cookie, rail_open);
+            assert!(
+                html.contains(&format!(r#"data-open="{open}""#)),
+                "{cookie:?} {rail_open}: {html}"
+            );
+        }
     }
 
     #[test]
