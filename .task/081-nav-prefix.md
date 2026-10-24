@@ -1,6 +1,6 @@
 # 081 A prefix for NavList's hrefs — a console's /t/{tenant}
 
-status: review · rank: 2 · level: simple · type: feat · request: anatta-console 096 · light path · number: working, checked against main at merge
+status: merged · rank: 2 · level: simple · type: feat · request: anatta-console 096 · light path · number: working, checked against main at merge
 
 ## Summary
 anatta-console's SPA (096) keeps the tenant in its URLs (`/t/{tenant}/members`), so two tabs can hold two tenants. `NavEntry.href` is `&'static str` and anatta-studio builds `NavEntry` literally, so the type cannot change; a per-tenant string would leak once per render on the server. Additive instead: `NavList` gains a live `prefix` (empty by default) and `with_prefix`; each entry renders `prefix + href` and is current when the path equals the whole. No service builds `NavList` literally (grepped: every one calls `NavList::new`). Rank 2: difficulty 1, impact 1.
@@ -13,3 +13,9 @@ anatta-console's SPA (096) keeps the tenant in its URLs (`/t/{tenant}/members`),
 | Review | deep #15086: `current` must include the prefix (now said on with_prefix), no other reader of href/sections (grepped: footer.rs reads FooterLink's), a trailing slash would double (joined(): one slash), the no-prefix path paid a closure (prefix is now an Option: None renders as before), give the prefix synchronously at SSR (said). Fixed in the second commit |
 
 ## Merge
+
+55d78ca, released v0.4.8 (number and version checked free at merge)
+
+## Retro
+
+Light path: the Log line is the retro. The review caught a no-prefix cost and a double slash before any service saw them.
