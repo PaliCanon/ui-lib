@@ -581,6 +581,88 @@ mod gold_text_contrast {
         (la.max(lb) + 0.05) / (la.min(lb) + 0.05)
     }
 
+    /// 079: the tone colours are text (a badge's label, a callout's icon
+    /// and an error under a field), so each reaches AA on every opaque
+    /// surface of every theme block. Their -soft fills are a tint of a few
+    /// percent over those surfaces, which moves the ratio by less than the
+    /// margin these keep.
+    #[test]
+    fn tone_text_reaches_aa_against_every_background_in_every_theme_block() {
+        for (name, opener) in BLOCKS {
+            let b = block(CSS, opener);
+            // --ps-danger itself is a fill and an edge here; its text is
+            // --ps-danger-text (dark --ps-danger is 4.39:1 on a card).
+            for tone in [
+                "--ps-success",
+                "--ps-info",
+                "--ps-warning",
+                "--ps-danger-text",
+            ] {
+                let fg = hex(b, tone).unwrap_or_else(|| panic!("{name}: no {tone}"));
+                for bg in BACKGROUNDS {
+                    let Some(back) = hex(b, bg) else { continue };
+                    let r = ratio(fg, back);
+                    assert!(r >= 4.5, "{name}: {tone} on {bg} is {r:.2}:1");
+                }
+            }
+        }
+    }
+
+    /// `rgb(r g b / a)` as its channels and alpha.
+    fn rgba(block: &str, token: &str) -> Option<([f64; 3], f64)> {
+        let at = block.find(&format!("{token}:"))?;
+        let value = block[at + token.len() + 1..].split(';').next()?.trim();
+        let inner = value.strip_prefix("rgb(")?.strip_suffix(')')?;
+        let (rgb, alpha) = inner.split_once('/')?;
+        let mut ch = rgb.split_whitespace().map(|c| c.parse::<f64>().ok());
+        let rgb = [ch.next()??, ch.next()??, ch.next()??];
+        Some((rgb, alpha.trim().parse().ok()?))
+    }
+
+    /// `soft` laid over the opaque `base`, as the browser composites it.
+    fn over((fg, a): ([f64; 3], f64), base: [f64; 3]) -> [f64; 3] {
+        [0, 1, 2].map(|i| fg[i] * a + base[i] * (1.0 - a))
+    }
+
+    /// 079 review: the pairs the components PAINT — a badge's tone text on
+    /// its soft fill, a callout's ink on it, the accent's gold on the mark,
+    /// a neutral badge's muted text on the chip — each fill composited over
+    /// the card and the page, at AA (badges are 12 px text: 4.5:1).
+    #[test]
+    fn the_painted_tone_pairs_reach_aa_in_every_theme_block() {
+        let pairs = [
+            ("--ps-success", "--ps-success-soft"),
+            ("--ps-info", "--ps-info-soft"),
+            ("--ps-warning", "--ps-warning-soft"),
+            ("--ps-danger-text", "--ps-danger-soft"),
+            ("--ps-gold-text", "--ps-accent-soft"),
+            ("--ps-ink", "--ps-success-soft"),
+            ("--ps-ink", "--ps-info-soft"),
+            ("--ps-ink", "--ps-warning-soft"),
+            ("--ps-ink", "--ps-danger-soft"),
+            ("--ps-ink", "--ps-mark"),
+        ];
+        for (name, opener) in BLOCKS {
+            let b = block(CSS, opener);
+            for base in ["--ps-card", "--ps-page"] {
+                let under = hex(b, base).unwrap_or_else(|| panic!("{name}: no {base}"));
+                for (text, fill) in pairs {
+                    let fg = hex(b, text).unwrap_or_else(|| panic!("{name}: no {text}"));
+                    let soft =
+                        rgba(b, fill).unwrap_or_else(|| panic!("{name}: {fill} is not rgb(… / a)"));
+                    let r = ratio(fg, over(soft, under));
+                    assert!(r >= 4.5, "{name}: {text} on {fill} over {base} is {r:.2}:1");
+                }
+            }
+            let (muted, chip) = (
+                hex(b, "--ps-muted").expect("muted"),
+                hex(b, "--ps-chip").expect("chip"),
+            );
+            let r = ratio(muted, chip);
+            assert!(r >= 4.5, "{name}: --ps-muted on --ps-chip is {r:.2}:1");
+        }
+    }
+
     #[test]
     fn gold_text_reaches_aa_against_every_background_in_every_theme_block() {
         for (name, opener) in BLOCKS {
@@ -665,7 +747,7 @@ mod gold_text_contrast {
     /// The design's light tokens (task 065, palicanon.app's cream): the one
     /// place a value change is reviewed. Names carry the `--ps-` prefix and
     /// values are written as in `theme.css`.
-    const LIGHT_TOKENS: [(&str, &str); 27] = [
+    const LIGHT_TOKENS: [(&str, &str); 35] = [
         ("--ps-page", "#fdf6e3"),
         ("--ps-rail", "#f5ecd7"),
         ("--ps-primary", "#f0e5cc"),
@@ -687,7 +769,15 @@ mod gold_text_contrast {
         ("--ps-on-gold", "#fffaf0"),
         ("--ps-mark", "rgb(232 163 23 / 0.22)"),
         ("--ps-danger", "#b03a3a"),
+        ("--ps-danger-soft", "rgb(176 58 58 / 0.1)"),
+        ("--ps-danger-text", "#a33333"),
+        ("--ps-accent-soft", "rgb(232 163 23 / 0.12)"),
         ("--ps-success", "#286b40"),
+        ("--ps-success-soft", "rgb(40 107 64 / 0.1)"),
+        ("--ps-info", "#2d5a82"),
+        ("--ps-info-soft", "rgb(45 90 130 / 0.1)"),
+        ("--ps-warning", "#8a5600"),
+        ("--ps-warning-soft", "rgb(138 86 0 / 0.1)"),
         ("--ps-glass", "rgb(245 236 215 / 0.8)"),
         ("--ps-glow", "rgb(184 125 15 / 0.18)"),
         ("--ps-halo", "rgb(184 125 15 / 0.1)"),
@@ -699,7 +789,7 @@ mod gold_text_contrast {
         value.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
-    /// Both light blocks declare exactly the design's 27 names (no extra,
+    /// Both light blocks declare exactly the design's 35 names (078 added --ps-success, 079 the eight other tone tokens) (no extra,
     /// none missing, none declared twice) with exactly its values.
     #[test]
     fn each_light_block_is_the_designs_table() {

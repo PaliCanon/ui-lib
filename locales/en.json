@@ -17,5 +17,9 @@
   "sign_out_body": "You will need to sign in again to come back.",
   "sign_out_title": "Sign out?",
   "system": "System",
-  "theme": "Theme"
+  "theme": "Theme",
+  "callout_dismiss": "Dismiss",
+  "table_empty": "Nothing yet.",
+  "table_truncated": "The list stops here; there are more.",
+  "table_actions": "Actions"
 }

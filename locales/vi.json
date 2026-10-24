@@ -17,5 +17,9 @@
   "sign_out_body": "Bạn sẽ cần đăng nhập lại để quay lại.",
   "sign_out_title": "Đăng xuất?",
   "system": "Hệ thống",
-  "theme": "Chủ đề"
+  "theme": "Chủ đề",
+  "callout_dismiss": "Đóng",
+  "table_empty": "Chưa có gì.",
+  "table_truncated": "Danh sách dừng ở đây; còn nữa.",
+  "table_actions": "Thao tác"
 }

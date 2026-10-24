@@ -43,7 +43,18 @@
   --ps-on-gold: #20262e;
   --ps-mark: rgb(201 168 76 / 0.16);
   --ps-danger: #e07a7a;
+  /* Tones (079): a status colour and its soft background, for badges and callouts (--ps-success is 078's). */
+  --ps-danger-soft: rgb(224 122 122 / 0.14);
+  /* Danger as TEXT on a card or its soft fill: --ps-danger reaches 4.39:1 on a card (079 found it; it stays, a look services use). */
+  --ps-danger-text: #ec9a9a;
+  /* The accent badge's fill: --ps-mark is too strong under 12 px gold text. */
+  --ps-accent-soft: rgb(201 168 76 / 0.08);
   --ps-success: #7fc98f;
+  --ps-success-soft: rgb(127 201 143 / 0.14);
+  --ps-info: #95bbdd;
+  --ps-info-soft: rgb(149 187 221 / 0.14);
+  --ps-warning: #e2ad5b;
+  --ps-warning-soft: rgb(226 173 91 / 0.15);
   --ps-glass: rgb(44 51 61 / 0.6);
   --ps-glow: rgb(201 168 76 / 0.2);
   --ps-halo: rgb(201 168 76 / 0.14);
@@ -75,7 +86,15 @@
   --ps-on-gold: #fffaf0;
   --ps-mark: rgb(232 163 23 / 0.22);
   --ps-danger: #b03a3a;
+  --ps-danger-soft: rgb(176 58 58 / 0.1);
+  --ps-danger-text: #a33333;
+  --ps-accent-soft: rgb(232 163 23 / 0.12);
   --ps-success: #286b40;
+  --ps-success-soft: rgb(40 107 64 / 0.1);
+  --ps-info: #2d5a82;
+  --ps-info-soft: rgb(45 90 130 / 0.1);
+  --ps-warning: #8a5600;
+  --ps-warning-soft: rgb(138 86 0 / 0.1);
   --ps-glass: rgb(245 236 215 / 0.8);
   --ps-glow: rgb(184 125 15 / 0.18);
   --ps-halo: rgb(184 125 15 / 0.1);
@@ -109,7 +128,15 @@
     --ps-on-gold: #fffaf0;
     --ps-mark: rgb(232 163 23 / 0.22);
     --ps-danger: #b03a3a;
+    --ps-danger-soft: rgb(176 58 58 / 0.1);
+    --ps-danger-text: #a33333;
+    --ps-accent-soft: rgb(232 163 23 / 0.12);
     --ps-success: #286b40;
+    --ps-success-soft: rgb(40 107 64 / 0.1);
+    --ps-info: #2d5a82;
+    --ps-info-soft: rgb(45 90 130 / 0.1);
+    --ps-warning: #8a5600;
+    --ps-warning-soft: rgb(138 86 0 / 0.1);
     --ps-glass: rgb(245 236 215 / 0.8);
     --ps-glow: rgb(184 125 15 / 0.18);
     --ps-halo: rgb(184 125 15 / 0.1);
@@ -141,7 +168,15 @@
   --color-on-gold: var(--ps-on-gold);
   --color-mark: var(--ps-mark);
   --color-danger: var(--ps-danger);
+  --color-danger-soft: var(--ps-danger-soft);
+  --color-danger-text: var(--ps-danger-text);
+  --color-accent-soft: var(--ps-accent-soft);
   --color-success: var(--ps-success);
+  --color-success-soft: var(--ps-success-soft);
+  --color-info: var(--ps-info);
+  --color-info-soft: var(--ps-info-soft);
+  --color-warning: var(--ps-warning);
+  --color-warning-soft: var(--ps-warning-soft);
   --color-glass: var(--ps-glass);
   --color-glow: var(--ps-glow);
   --color-halo: var(--ps-halo);

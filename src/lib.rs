@@ -77,13 +77,17 @@
 //! - [`session_header`] — [`session_header::SessionHeader`], a counter
 //!   ("3 / 10 cards") and a close button; the dialog is the caller's.
 
+pub mod avatar;
+pub mod badge;
 pub mod bucket_strip;
 pub mod button;
+pub mod callout;
 pub mod carousel;
 mod catalogue;
 // Present only under the `csr` feature (an inner cfg in the file: the grep
 // gates keep every `csr` cfg in csr.rs).
 pub mod csr;
+pub mod data_table;
 pub mod dialog;
 pub mod env_badge;
 mod focus_trap;
@@ -107,7 +111,10 @@ pub mod session_header;
 pub mod shell;
 pub mod slider;
 pub mod store;
+pub mod surface;
+pub mod tabs;
 pub mod theme;
+pub mod tone;
 mod viewport;
 
 // The build script's placeholder-parity check, unit-tested here (it has no
@@ -116,12 +123,16 @@ mod viewport;
 #[path = "../build/placeholders.rs"]
 mod placeholders;
 
+pub use avatar::{Avatar, initials};
+pub use badge::Badge;
 pub use bucket_strip::{Bucket, BucketStrip, Columns};
 pub use button::{
     Button, ChoiceCardOption, ChoiceCards, Disclosed, Disclosure, DisclosureButton, LinkButton,
     RadioButton, Segmented, SegmentedOption, Size, ToggleButton, Variant,
 };
+pub use callout::Callout;
 pub use carousel::Carousel;
+pub use data_table::{Align, Column, DataTable};
 pub use dialog::{Dialog, DialogSection, DialogSize};
 pub use env_badge::{EnvBadge, EnvBadgeInfo};
 pub use footer::{Footer, FooterLink};
@@ -148,4 +159,7 @@ pub use session_header::SessionHeader;
 pub use shell::{AppShell, LanguagePicker, ShellState};
 pub use slider::Slider;
 pub use store::{Store, StoreError};
+pub use surface::{Card, PageHeader, Section};
+pub use tabs::{TabOption, TabPanel, TabSet, Tabs, panel_id, tab_id};
 pub use theme::{Theme, ThemePicker, theme_attribute, theme_menu, theme_signal};
+pub use tone::Tone;
