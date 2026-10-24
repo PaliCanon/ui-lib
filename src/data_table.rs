@@ -79,6 +79,13 @@ impl<T> Column<T> {
     }
 
     fn classes(&self, head: bool) -> String {
+        self.classes_at(head, false)
+    }
+
+    /// A cell's classes; `title` is the first column's body cell, which is
+    /// the card's title below sm (084): no label, at the start, the line
+    /// a person reads first.
+    fn classes_at(&self, head: bool, title: bool) -> String {
         let align = match self.align {
             Align::Start => "text-left",
             Align::End => "text-right",
@@ -102,7 +109,9 @@ impl<T> Column<T> {
         // Below sm: a line of the row's card, the header as its label.
         let line = "max-sm:flex max-sm:items-center max-sm:gap-3 max-sm:border-0 \
                     max-sm:py-1.5 max-sm:min-w-0";
-        let stacked = if self.header.is_empty() {
+        let stacked = if title {
+            "max-sm:justify-start max-sm:pb-2.5 max-sm:text-left"
+        } else if self.header.is_empty() {
             "max-sm:justify-end max-sm:pt-3"
         } else {
             "max-sm:justify-between max-sm:before:shrink-0 max-sm:before:text-xs \
@@ -145,14 +154,21 @@ fn head_cells<T>(columns: &[Column<T>]) -> impl IntoView + use<T> {
 /// One row's cells, each carrying its column's header as `data-label`
 /// (the card's label below sm, 083).
 fn row_cells<T>(columns: &[Column<T>], row: &T) -> impl IntoView + use<T> {
+    // The first column a phone shows that has a header is the card's title
+    // (084) — never an actions column, whose header is empty.
+    let title = columns
+        .iter()
+        .position(|c| !c.hide_on_phone && !c.header.is_empty());
     columns
         .iter()
-        .map(|c| {
+        .enumerate()
+        .map(|(at, c)| {
+            let is_title = Some(at) == title;
             view! {
                 <td
                     role="cell"
-                    class=c.classes(false)
-                    data-label=(!c.header.is_empty()).then(|| c.header.clone())
+                    class=c.classes_at(false, is_title)
+                    data-label=(!is_title && !c.header.is_empty()).then(|| c.header.clone())
                 >
                     {(c.cell)(row)}
                 </td>
@@ -266,6 +282,7 @@ mod tests {
         fn columns() -> Vec<Column<Member>> {
             vec![
                 Column::new("Member", |m: &Member| m.email.into_any()),
+                Column::new("Role", |_: &Member| "admin".into_any()),
                 Column::new("Joined", |_: &Member| "today".into_any()).hide_on_phone(),
                 Column::new("", |m: &Member| format!("act {}", m.sub).into_any()).align(Align::End),
             ]
@@ -311,21 +328,31 @@ mod tests {
             assert!(out.contains("overflow-x-auto"), "the box scrolls: {out}");
         }
 
-        /// 083: below sm a row is a card — the head row leaves, every cell
-        /// carries its column's header as `data-label` shown before it, and
-        /// the actions cell sits at the end.
-        #[test]
-        fn below_sm_each_row_stacks_with_its_labels() {
-            let out = table(
+        /// One `<td`'s markup: the cell holding `text`.
+        fn cell<'a>(out: &'a str, text: &str) -> &'a str {
+            out.split("<td")
+                .find(|c| c.contains(text))
+                .unwrap_or_else(|| panic!("no cell holding {text}: {out}"))
+        }
+
+        fn one_row() -> String {
+            table(
                 vec![Member {
                     sub: "u1",
                     email: "ann@example.org",
                 }],
                 false,
-            );
+            )
+        }
+
+        /// 083: below sm a row is a card — the head row out of sight but
+        /// read, the roles explicit, the box never wider than the page.
+        #[test]
+        fn below_sm_each_row_is_a_card_screen_readers_still_read() {
+            let out = one_row();
             assert!(
                 out.contains(r#"<thead role="rowgroup" class="max-sm:sr-only">"#),
-                "the head stays for screen readers: {out}"
+                "{out}"
             );
             assert!(
                 out.contains(r#"<tr role="row" class="max-sm:block"#),
@@ -335,41 +362,85 @@ mod tests {
                 out.contains(r#"<table role="table""#) && out.contains(r#"role="cell""#),
                 "{out}"
             );
-            assert!(out.contains(r#"data-label="Member""#), "{out}");
-            // The secondary column's cell leaves phones and is no card line.
-            let joined = out
-                .split("<td")
-                .find(|c| c.contains("today"))
-                .expect("the Joined cell");
+            assert!(out.contains("min-w-0 overflow-x-auto"), "{out}");
+        }
+
+        /// 083, 084: the first visible column is the card's title (no label,
+        /// at the start), every other visible column a labelled line, a
+        /// secondary column gone, the actions last with no empty label.
+        #[test]
+        fn below_sm_the_title_comes_first_and_the_rest_are_labelled() {
+            let out = one_row();
+            let title = cell(&out, "ann@example.org");
+            assert!(
+                !title.contains("data-label") && !title.contains("before:content"),
+                "{title}"
+            );
+            assert!(!title.contains("before:shrink-0"), "{title}");
+            assert_eq!(
+                out.matches("max-sm:justify-start").count(),
+                1,
+                "one title: {out}"
+            );
+            let role = cell(&out, ">admin<");
+            assert!(role.contains(r#"data-label="Role""#), "{role}");
+            assert!(
+                role.contains("max-sm:before:content-[attr(data-label)]"),
+                "{role}"
+            );
+            let joined = cell(&out, "today");
             assert!(joined.contains("max-sm:hidden"), "{joined}");
             assert!(
                 !joined.contains("max-sm:flex") && !joined.contains("before:content"),
                 "{joined}"
             );
-            // The actions cell carries no empty label.
-            let actions = out
-                .split("<td")
-                .find(|c| c.contains("act u1"))
-                .expect("the actions cell");
+            let actions = cell(&out, "act u1");
             assert!(!actions.contains("data-label"), "{actions}");
+            assert!(actions.contains("max-sm:justify-end"), "{actions}");
+        }
+
+        /// 084: the title is the first column a phone shows that has a
+        /// header — past a hidden one, and never an actions column first.
+        #[test]
+        fn the_title_skips_hidden_and_actions_columns() {
+            let out = Owner::new().with(|| {
+                let columns = vec![
+                    Column::new("", |m: &Member| format!("act {}", m.sub).into_any()),
+                    Column::new("Joined", |_: &Member| "today".into_any()).hide_on_phone(),
+                    Column::new("Member", |m: &Member| m.email.into_any()),
+                ];
+                view! {
+                    <DataTable
+                        columns=columns
+                        rows=Signal::derive(|| {
+                            vec![
+                                Member {
+                                    sub: "u1",
+                                    email: "ann@example.org",
+                                },
+                            ]
+                        })
+                        key=|m: &Member| m.sub.to_string()
+                        label="Members"
+                    />
+                }
+                .to_html()
+            });
+            let title = cell(&out, "ann@example.org");
             assert!(
-                out.contains("max-sm:before:content-[attr(data-label)]"),
+                title.contains("max-sm:justify-start") && !title.contains("data-label"),
+                "{title}"
+            );
+            assert!(
+                !cell(&out, "act u1").contains("max-sm:justify-start"),
                 "{out}"
-            );
-            assert!(
-                out.contains("max-sm:justify-end"),
-                "the actions last: {out}"
-            );
-            assert!(
-                out.contains("min-w-0 overflow-x-auto"),
-                "the box never widens the page: {out}"
             );
         }
 
         #[test]
         fn no_rows_says_so_and_a_cut_list_says_it_was_cut() {
             let out = table(vec![], true);
-            assert!(out.contains("colspan=\"3\""), "{out}");
+            assert!(out.contains("colspan=\"4\""), "{out}");
             assert!(out.contains("border-t"), "the truncated line: {out}");
         }
     }
