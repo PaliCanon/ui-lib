@@ -44,6 +44,10 @@ pub struct NavList {
     pub sections: Signal<Vec<NavSection>>,
     /// The path of the page being shown, followed live.
     pub current: Signal<String>,
+    /// Prepended to every entry's `href`, followed live (081): the entries
+    /// of a section scoped by the URL (`/t/{tenant}`) stay `&'static`. None
+    /// by default: the entries render as written, no closure per entry.
+    pub prefix: Option<Signal<String>>,
 }
 
 impl NavList {
@@ -57,7 +61,19 @@ impl NavList {
         Self {
             sections: sections.into(),
             current: current.into(),
+            prefix: None,
         }
+    }
+
+    /// The same list with `prefix` before every entry's `href` — a console's
+    /// `/t/{tenant}`, a trailing `/` dropped — and the current entry compared
+    /// on the whole path: `current` is then the full path, prefix included.
+    /// Give the prefix synchronously at the server render (the URL's
+    /// segment), so the server and the first browser render agree.
+    #[must_use]
+    pub fn with_prefix(mut self, prefix: impl Into<Signal<String>>) -> Self {
+        self.prefix = Some(prefix.into());
+        self
     }
 }
 
@@ -66,6 +82,7 @@ impl NavList {
 #[component]
 pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> impl IntoView {
     let current = nav.current;
+    let prefix = nav.prefix;
     let sections = nav.sections;
     move || {
         sections
@@ -78,7 +95,15 @@ pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> im
                         .entries
                         .into_iter()
                         .map(|entry| {
-                            view! { <Entry entry=entry current=current size=Size::Md shown=open /> }
+                            view! {
+                                <Entry
+                                    entry=entry
+                                    current=current
+                                    prefix=prefix
+                                    size=Size::Md
+                                    shown=open
+                                />
+                            }
                         })
                         .collect_view()}
                 }
@@ -92,6 +117,7 @@ pub(crate) fn RailSections(nav: NavList, #[prop(into)] open: Signal<bool>) -> im
 #[component]
 pub(crate) fn MobileSections(nav: NavList) -> impl IntoView {
     let current = nav.current;
+    let prefix = nav.prefix;
     let sections = nav.sections;
     move || {
         sections
@@ -108,6 +134,7 @@ pub(crate) fn MobileSections(nav: NavList) -> impl IntoView {
                                 <Entry
                                     entry=entry
                                     current=current
+                                    prefix=prefix
                                     size=Size::Lg
                                     shown=Signal::derive(|| true)
                                 />
@@ -141,30 +168,49 @@ fn SectionTitle(title: Option<&'static str>, #[prop(into)] shown: Signal<bool>) 
 fn Entry(
     entry: NavEntry,
     current: Signal<String>,
+    prefix: Option<Signal<String>>,
     size: Size,
     #[prop(into)] shown: Signal<bool>,
 ) -> impl IntoView {
-    let is_current = Signal::derive(move || current.get() == entry.href);
-    view! {
-        <LinkButton
-            href=entry.href
-            variant=Variant::Nav
-            size=size
-            current=is_current
-            // The page being shown is already there: choosing it again keeps
-            // the page and its scroll as they are.
-            on:click=move |ev: leptos::ev::MouseEvent| {
-                if is_current.get_untracked() {
-                    ev.prevent_default();
+    // Rebuilt when the prefix changes (a tenant switched in the URL), so the
+    // link and the current mark follow it; without one, rendered once.
+    move || {
+        let href = match prefix {
+            Some(p) => joined(&p.get(), entry.href),
+            None => entry.href.to_string(),
+        };
+        let target = href.clone();
+        let is_current = Signal::derive(move || current.get() == target);
+        view! {
+            <LinkButton
+                href=href
+                variant=Variant::Nav
+                size=size
+                current=is_current
+                // The page being shown is already there: choosing it again keeps
+                // the page and its scroll as they are.
+                on:click=move |ev: leptos::ev::MouseEvent| {
+                    if is_current.get_untracked() {
+                        ev.prevent_default();
+                    }
                 }
-            }
-        >
-            <Icon name=entry.icon />
-            <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
-                {entry.label}
-            </span>
-        </LinkButton>
+            >
+                <Icon name=entry.icon />
+                <span class="transition-opacity duration-150" class:opacity-0=move || !shown.get()>
+                    {entry.label}
+                </span>
+            </LinkButton>
+        }
     }
+}
+
+/// `prefix` then `href`, one `/` between them whatever either carries.
+fn joined(prefix: &str, href: &str) -> String {
+    format!(
+        "{}/{}",
+        prefix.trim_end_matches('/'),
+        href.trim_start_matches('/')
+    )
 }
 
 #[cfg(all(test, feature = "ssr"))]
@@ -184,6 +230,39 @@ mod tests {
             }],
             "/buttons".to_string(),
         )
+    }
+
+    #[test]
+    fn a_prefix_goes_before_every_href_and_marks_the_current_entry_on_the_whole_path() {
+        let out = Owner::new().with(|| {
+            let nav = NavList::new(list().sections, "/t/42/buttons".to_string())
+                .with_prefix("/t/42".to_string());
+            view! { <RailSections nav=nav open=Signal::derive(|| true) /> }.to_html()
+        });
+        assert!(
+            out.contains(r#"href="/t/42/buttons""#) && out.contains(r#"href="/t/42/shell""#),
+            "{out}"
+        );
+        assert_eq!(out.matches(r#"aria-current="page""#).count(), 1, "{out}");
+        let before = &out[..out.find(r#"href="/t/42/shell""#).unwrap()];
+        assert!(
+            before.contains(r#"aria-current="page""#),
+            "Buttons is current: {out}"
+        );
+    }
+
+    #[test]
+    fn a_prefix_and_an_href_meet_at_one_slash() {
+        assert_eq!(joined("/t/42", "/members"), "/t/42/members");
+        assert_eq!(joined("/t/42/", "/members"), "/t/42/members");
+        assert_eq!(joined("/t/42", "members"), "/t/42/members");
+    }
+
+    #[test]
+    fn without_a_prefix_the_hrefs_are_as_written() {
+        let out = Owner::new()
+            .with(|| view! { <RailSections nav=list() open=Signal::derive(|| true) /> }.to_html());
+        assert!(out.contains(r#"href="/buttons""#), "{out}");
     }
 
     #[test]
