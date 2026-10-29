@@ -38,6 +38,34 @@ pub fn pick(
     best.map(|(i, _)| i)
 }
 
+/// The innermost sphere under `at`: of those whose drawn disc holds it, the smallest on screen
+/// (a module inside its crate). `focal` is 1 / tan(half the vertical field of view).
+pub fn pick_sphere(
+    at: Vec2,
+    size: Vec2,
+    view_proj: Mat4,
+    spheres: &[(Vec3, f32)],
+    focal: f32,
+) -> Option<usize> {
+    let mut best: Option<(usize, f32)> = None;
+    for (i, &(center, radius)) in spheres.iter().enumerate() {
+        let clip = view_proj * center.extend(1.0);
+        if clip.w <= 0.0 || radius <= 0.0 {
+            continue;
+        }
+        let ndc = clip.truncate() / clip.w;
+        let screen = Vec2::new(
+            f32::midpoint(ndc.x, 1.0) * size.x,
+            (1.0 - ndc.y) * 0.5 * size.y,
+        );
+        let r = radius * focal * (size.y / 2.0) / clip.w;
+        if screen.distance(at) <= r && best.is_none_or(|(_, br)| r < br) {
+            best = Some((i, r));
+        }
+    }
+    best.map(|(i, _)| i)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -45,6 +73,27 @@ mod tests {
     fn cam() -> Mat4 {
         glam::camera::rh::proj::directx::perspective(1.0, 1.0, 0.1, 100.0)
             * glam::camera::rh::view::look_at_mat4(Vec3::new(0.0, 0.0, 10.0), Vec3::ZERO, Vec3::Y)
+    }
+
+    #[test]
+    fn the_innermost_sphere_under_the_pointer_is_picked() {
+        let focal = 1.0 / 0.5_f32.tan();
+        let big = (Vec3::ZERO, 3.0);
+        let small = (Vec3::new(0.5, 0.0, 0.0), 0.8);
+        let far = (Vec3::new(8.0, 0.0, 0.0), 0.5);
+        let spheres = [big, small, far];
+        let at = |x| {
+            pick_sphere(
+                Vec2::new(x, 50.0),
+                Vec2::splat(100.0),
+                cam(),
+                &spheres,
+                focal,
+            )
+        };
+        assert_eq!(at(52.0), Some(1), "inside both: the smaller one");
+        assert_eq!(at(35.0), Some(0), "inside the big one only");
+        assert_eq!(at(1.0), None, "outside every sphere");
     }
 
     #[test]

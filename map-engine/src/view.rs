@@ -3,6 +3,7 @@
 use crate::camera::Orbit;
 use crate::check;
 use crate::gpu::{Gpu, LineVertex, PointInstance, Uniforms};
+use crate::spheres::spheres_of;
 use glam::{Vec2, Vec3};
 use wasm_bindgen::prelude::*;
 
@@ -26,8 +27,9 @@ pub struct GraphView {
     orbit: Orbit,
     positions: Vec<Vec3>,
     points: Vec<PointInstance>,
-    segments: Vec<u32>,       // pairs of point indices
-    segment_colors: Vec<f32>, // rgba per segment
+    segments: Vec<u32>,        // pairs of point indices
+    segment_colors: Vec<f32>,  // rgba per segment
+    spheres: Vec<(Vec3, f32)>, // centre and radius, for picking
     style: Style,
     dim: bool,
     css: Vec2,
@@ -83,6 +85,7 @@ pub async fn create_graph_view(
         css: Vec2::new(width, height),
         dpr,
         drag: None,
+        spheres: Vec::new(),
         points_dirty: true,
         lines_dirty: true,
         redraw: true,
@@ -276,6 +279,40 @@ impl GraphView {
     /// Wheel: positive zooms out.
     pub fn wheel(&mut self, delta_y: f32) {
         self.orbit.wheel(delta_y);
+    }
+
+    /// Spheres around groups of points, seen through and drawn behind everything else:
+    /// `centers` (x, y, z each), `radii` (world units), `colors` (red, green, blue and the
+    /// opacity at the rim, 0–1 each). Replaces the previous ones; none clears them.
+    ///
+    /// # Errors
+    /// When the three lists do not describe the same number of spheres, or a value is not
+    /// finite.
+    #[wasm_bindgen(js_name = setSpheres)]
+    pub fn set_spheres(
+        &mut self,
+        centers: &[f32],
+        radii: &[f32],
+        colors: &[f32],
+    ) -> Result<(), JsError> {
+        let spheres = spheres_of(centers, radii, colors).map_err(|e| JsError::new(&e))?;
+        self.gpu.set_spheres(&spheres);
+        self.spheres = spheres
+            .iter()
+            .map(|s| (Vec3::from_array(s.center), s.radius))
+            .collect();
+        self.redraw = true;
+        Ok(())
+    }
+
+    /// The innermost sphere at (x, y) CSS pixels (the smallest whose disc holds it), or -1.
+    #[wasm_bindgen(js_name = pickSphere)]
+    pub fn pick_sphere(&self, x: f32, y: f32) -> i32 {
+        let aspect = self.css.x / self.css.y.max(1.0);
+        let vp = self.orbit.projection(aspect) * self.orbit.view();
+        let focal = 1.0 / (crate::camera::FOV_Y.to_radians() / 2.0).tan();
+        crate::pick::pick_sphere(Vec2::new(x, y), self.css, vp, &self.spheres, focal)
+            .map_or(-1, check::point_id)
     }
 
     /// The point at (x, y) CSS pixels, or -1.

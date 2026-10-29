@@ -1,6 +1,7 @@
 // Points: one camera-facing quad per point (WebGPU has no point size), a disc with a glowing
 // core on dark themes, a plain disc on light ones. Same maths as the three.js shader it
-// replaces (suttasmap src/map/engine.ts). Lines: plain coloured segments.
+// replaces (suttasmap src/map/engine.ts). Lines: plain coloured segments. Spheres: groups of
+// points seen through, drawn first so the lines and points stay on top (there is no depth buffer).
 
 struct Uniforms {
     view_proj: mat4x4f,
@@ -80,4 +81,53 @@ fn line_vs(@location(0) pos: vec3f, @location(1) color: vec4f) -> LineOut {
 @fragment
 fn line_fs(o: LineOut) -> @location(0) vec4f {
     return o.color;
+}
+
+// 1 / tan(FOV_Y / 2), FOV_Y the camera's 55° vertical field of view (camera.rs; a test keeps
+// them together): a sphere's projected radius in viewport-heights-over-two per unit of depth.
+const FOCAL: f32 = 1.9209821;
+
+struct Sphere {
+    @location(0) center: vec3f,
+    @location(1) radius: f32,  // world units; 0: hidden
+    @location(2) color: vec4f, // rgb, and the opacity at its rim
+};
+
+struct SphereOut {
+    @builtin(position) clip: vec4f,
+    @location(0) uv: vec2f,
+    @location(1) color: vec4f,
+};
+
+@vertex
+fn sphere_vs(@builtin(vertex_index) vi: u32, s: Sphere) -> SphereOut {
+    var corners = array<vec2f, 6>(
+        vec2f(-1.0, -1.0), vec2f(1.0, -1.0), vec2f(1.0, 1.0),
+        vec2f(-1.0, -1.0), vec2f(1.0, 1.0), vec2f(-1.0, 1.0),
+    );
+    let c = corners[vi];
+    let mv = u.view * vec4f(s.center, 1.0);
+    let px = 2.0 * s.radius * u.scale * FOCAL / max(-mv.z, 0.001);
+    var clip = u.view_proj * vec4f(s.center, 1.0);
+    clip = vec4f(clip.xy + c * px / u.viewport * clip.w, clip.zw);
+    if (s.radius <= 0.0 || clip.w <= 0.0) {
+        clip = vec4f(2.0, 2.0, 2.0, 1.0); // hidden, or behind the camera
+    }
+    var o: SphereOut;
+    o.clip = clip;
+    o.uv = c;
+    o.color = s.color;
+    return o;
+}
+
+@fragment
+fn sphere_fs(o: SphereOut) -> @location(0) vec4f {
+    let d = length(o.uv);
+    if (d > 1.0) {
+        discard;
+    }
+    // Seen through: thin at its middle, denser towards its rim, a soft outline.
+    let rim = d * d * d;
+    let edge = 1.0 - smoothstep(0.96, 1.0, d);
+    return vec4f(o.color.rgb, o.color.a * (0.2 + 0.8 * rim) * edge);
 }

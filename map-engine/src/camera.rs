@@ -10,7 +10,7 @@ use std::f32::consts::{PI, TAU};
 const DAMPING: f32 = 0.05;
 const AUTO_ROTATE: f32 = 0.25; // three.js units: one turn in 60 s / speed
 const FLIGHT_MS: f64 = 1100.0;
-const FOV_Y: f32 = 55.0;
+pub(crate) const FOV_Y: f32 = 55.0;
 const KEY_SPEED: f32 = 0.8; // distances to the target per second, while an arrow key is held
 const MIN_ZOOM: f32 = 0.02; // closest eye distance, in scene radii
 const MAX_ZOOM: f32 = 5.0; // farthest eye distance, in scene radii

@@ -11,6 +11,8 @@ mod check;
 mod gpu;
 pub mod live_layout;
 pub mod pick;
+#[cfg_attr(not(target_arch = "wasm32"), allow(dead_code))]
+mod spheres;
 #[cfg(target_arch = "wasm32")]
 mod timer;
 #[cfg(target_arch = "wasm32")]

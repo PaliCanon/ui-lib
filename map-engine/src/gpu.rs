@@ -56,6 +56,8 @@ pub struct Gpu {
     points: wgpu::Buffer,
     n_points: u32,
     lines: Option<(wgpu::Buffer, u32)>,
+    spheres_pipe: wgpu::RenderPipeline,
+    spheres: Option<(wgpu::Buffer, u32)>,
     pub backend: String,
     pub timer: Option<Timer>,
     /// Releases the GPU once everything above is dropped (fields drop in order): last.
@@ -192,6 +194,8 @@ impl Gpu {
             points,
             n_points: 0,
             lines: None,
+            spheres_pipe: pipes.spheres,
+            spheres: None,
             backend,
             _release: release,
         }
@@ -245,6 +249,20 @@ impl Gpu {
         });
     }
 
+    /// Replace every sphere.
+    pub fn set_spheres(&mut self, spheres: &[crate::spheres::SphereInstance]) {
+        self.spheres = (!spheres.is_empty()).then(|| {
+            let buf = self
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("spheres"),
+                    contents: bytemuck::cast_slice(spheres),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+            (buf, check::to_u32(spheres.len()))
+        });
+    }
+
     /// Draw one frame on `background`; `additive`: lines add up (dark themes). False when the
     /// surface had no frame to give (it is then reconfigured, and the next call draws).
     pub fn draw(&mut self, u: &Uniforms, background: [f64; 3], additive: bool) -> bool {
@@ -279,7 +297,8 @@ impl Gpu {
         true
     }
 
-    /// Record the one render pass: clear to `background`, the lines, then the points.
+    /// Record the one render pass: clear to `background`, the spheres, the lines, then the
+    /// points (no depth buffer: what comes later is on top).
     fn record_pass(
         &self,
         enc: &mut wgpu::CommandEncoder,
@@ -307,6 +326,11 @@ impl Gpu {
             ..Default::default()
         });
         pass.set_bind_group(0, &self.bind, &[]);
+        if let Some((buf, n)) = &self.spheres {
+            pass.set_pipeline(&self.spheres_pipe);
+            pass.set_vertex_buffer(0, buf.slice(..));
+            pass.draw(0..6, 0..*n);
+        }
         if let Some((buf, n)) = &self.lines {
             pass.set_pipeline(if additive {
                 &self.lines_add
@@ -379,6 +403,7 @@ struct Pipelines {
     points: wgpu::RenderPipeline,
     lines_add: wgpu::RenderPipeline,
     lines_over: wgpu::RenderPipeline,
+    spheres: wgpu::RenderPipeline,
 }
 
 impl Pipelines {
@@ -393,26 +418,8 @@ impl Pipelines {
             bind_group_layouts: &[Some(layout)],
             immediate_size: 0,
         });
-        let point_attrs =
-            wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32, 2 => Float32x3, 3 => Float32];
         let line_attrs = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x4];
-        let points = pipeline(
-            device,
-            &pl,
-            &shader,
-            Stage {
-                vs: "point_vs",
-                fs: "point_fs",
-                layout: wgpu::VertexBufferLayout {
-                    array_stride: size_of::<PointInstance>() as u64,
-                    step_mode: wgpu::VertexStepMode::Instance,
-                    attributes: &point_attrs,
-                },
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                blend: ALPHA,
-                format,
-            },
-        );
+        let points = point_pipeline(device, &pl, &shader, format);
         let line = |blend| {
             pipeline(
                 device,
@@ -436,8 +443,64 @@ impl Pipelines {
             points,
             lines_add: line(ADD),
             lines_over: line(ALPHA),
+            spheres: sphere_pipeline(device, &pl, &shader, format),
         }
     }
+}
+
+/// Points: one instanced quad each.
+fn point_pipeline(
+    device: &wgpu::Device,
+    pl: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    let attrs =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32, 2 => Float32x3, 3 => Float32];
+    pipeline(
+        device,
+        pl,
+        shader,
+        Stage {
+            vs: "point_vs",
+            fs: "point_fs",
+            layout: wgpu::VertexBufferLayout {
+                array_stride: size_of::<PointInstance>() as u64,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &attrs,
+            },
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            blend: ALPHA,
+            format,
+        },
+    )
+}
+
+/// Spheres: one instanced quad each, blended over what is behind.
+fn sphere_pipeline(
+    device: &wgpu::Device,
+    pl: &wgpu::PipelineLayout,
+    shader: &wgpu::ShaderModule,
+    format: wgpu::TextureFormat,
+) -> wgpu::RenderPipeline {
+    let attrs = wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32, 2 => Float32x4];
+    pipeline(
+        device,
+        pl,
+        shader,
+        Stage {
+            vs: "sphere_vs",
+            fs: "sphere_fs",
+            layout: wgpu::VertexBufferLayout {
+                array_stride: size_of::<crate::spheres::SphereInstance>() as u64,
+                step_mode: wgpu::VertexStepMode::Instance,
+                attributes: &attrs,
+            },
+            topology: wgpu::PrimitiveTopology::TriangleList,
+            blend: ALPHA,
+            format,
+        },
+    )
 }
 
 struct Stage<'a> {
