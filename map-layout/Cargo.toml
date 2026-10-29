@@ -1,0 +1,23 @@
+[package]
+name = "map-layout"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+license = "CC-BY-NC-4.0"
+repository = "https://github.com/PaliCanon/ui-lib"
+description = "The 3D force-directed layout of the map (a port of ngraph.forcelayout): generic, no corpus, deterministic. Used live by the engine (wasm32) and by the data tools."
+publish = false
+
+[dev-dependencies]
+serde_json = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+# Every public item is documented; CI denies warnings, so this is enforced.
+missing_docs = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"
+needless_pass_by_value = "allow"

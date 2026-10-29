@@ -1,3 +1,9 @@
+# The library, and beside it the map crates (from vizualisation, 2026-10-30): the 3D graph
+# renderer and its force layout, shared by vizualisation and GitSense. Separate crates, so a
+# service using the components alone never builds wgpu.
+[workspace]
+members = [".", "map-engine", "map-layout"]
+
 [package]
 name = "palicanon-ui-lib"
 description = "PaliCanon's UI library: the shell, components, theme, languages and motion every service builds on (promoted from ui-lab once validated)."
